@@ -1,8 +1,38 @@
+# 의존성
 node_modules
+
+# Next.js 빌드 결과물
 .next
+out
+build
 next-env.d.ts
 *.tsbuildinfo
+
+# 테스트 결과물
+coverage
+
+# 환경변수 (비밀값) — 견본 파일만 올린다
 .env*
+!.env.example
+
+# 비밀 키·인증서
+*.pem
+*.key
+
+# 배포·Supabase 로컬 상태
+.vercel
+supabase/.temp
+supabase/.branches
+
+# Claude Code 개인 설정·임시 작업 폴더
+.claude/settings.local.json
+.claude/worktrees
+
+# 로그
 *.log
+
+# 에디터·운영체제 파일
+.vscode
+.idea
 .DS_Store
 Thumbs.db
