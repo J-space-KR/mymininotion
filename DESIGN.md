@@ -23,7 +23,7 @@
 ### 하지 않는 것 (코드로 확인된 것만)
 - **라이트 모드 없음** — `prefers-color-scheme` 처리나 밝은 배경 테마가 없음 (globals.css)
 - **강조색 여러 개 섞지 않음** — 시맨틱 색(pink/orange/blue)은 정의만 있고, 화면에서는 red(삭제 아이콘)·green(저장됨 점)만 상태 표시에 씀 (globals.css, pages/[id]/page.tsx)
-- **그라데이션 없음** — `linear-gradient` / `radial-gradient` 사용 없음 (globals.css)
+- **그라데이션 없음** — `linear-gradient` / `radial-gradient` 사용 없음. **예외:** 커버 스켈레톤의 시머 띠(`.cover--loading::after`)만 투명 → `--border-default` → 투명 그라데이션을 씀 (globals.css)
 - **테두리(border) 대신 inset 그림자** — 입력창·카드·다이얼로그의 윤곽은 `box-shadow: inset 0 0 0 1px`로 그림 (globals.css)
 - **빨간 삭제 버튼 없음** — 삭제 확정 버튼도 `white` 변형을 쓰고, 위험은 빨간 아이콘 박스로만 알림 (pages/[id]/page.tsx)
 
@@ -303,6 +303,7 @@
 | 카드 | `.profile-card` | 패딩 24px, 모서리 12px, `ink-200`, 아래 `0 3px 0 #000` (버튼처럼 입체감) |
 | 구분선 | `.rule` | 높이 1px, `border-default` |
 | 글자 수 바 | `.doc-count`, `.doc-count__line` | 글 상세 내용 아래, 화면 아래에 붙음(`position: sticky; bottom: 0`). 배경 `--bg-page`, 위쪽 윤곽 `inset 0 1px 0 var(--border-subtle)`, 13px `--text-secondary`, `tabular-nums`, 패딩 12px 0, 줄 간격 4px. `role="group"` + `aria-label="글자 수"`, `aria-live` 없음 (components/CharCounter.tsx) |
+| 커버 이미지 | `.cover`, `.cover__img`, `.cover__backdrop`, `.cover__error` | 글 상세 제목 위. 높이 320px(모바일 200px), 모서리 `--radius-card`, 배경 `--surface-card`. **사진은 자르지 않음**: `.cover__img`는 `object-fit: contain`으로 통째로, 남는 양옆은 같은 사진을 `.cover__backdrop`(`object-fit: cover`, `blur(28px) brightness(.55)`, `scale(1.2)`, `aria-hidden`)으로 흐리게 깔아 채움. 상태 변형 `--loading`(스켈레톤 + 시머) / `--loaded`(사진이 `--dur-base` 동안 서서히 보임) / `--error`(`border-subtle` 윤곽 + 안내 + secondary sm "다시 불러오기"). 고양이 API `https://cataas.com/cat/cute`에서 열 때마다 새로 받고 저장하지 않음 (components/CoverImage.tsx) |
 | 가운데 메시지 | `.center-msg` | 최소 높이 60vh, 가운데 정렬 (글 없음 등) |
 
 ### 5-7. 새 컴포넌트를 만들 때 규칙
@@ -337,6 +338,7 @@
 |---|---|---|---|
 | `fade` | 투명 → 보임 | 다이얼로그 뒤 막(`.scrim`) | `--dur-base` / `--ease-out` |
 | `pop` | 8px 아래 + 98% 크기 → 제자리 | 다이얼로그 본체 | `--dur-base` / `--ease-out` |
+| `shimmer` | 옅은 빛 띠가 왼쪽 → 오른쪽으로 지나감 (`translateX(-100% → 100%)`) | 커버 스켈레톤(`.cover--loading`). 로딩 표시는 스피너 대신 이걸 씀. `prefers-reduced-motion`이면 멈춤 | 1.4s 반복 / `--ease-press` |
 | 버튼 누름 | transform, 그림자 | 모든 버튼 | `--dur-fast` / `--ease-press` |
 | 배경·테두리 변화 | background, box-shadow | hover, 포커스 | `--dur-base` |
 
@@ -349,6 +351,8 @@
 | 빈 목록 | `.empty` 상자 + 다음 행동 안내 | workspace/page.tsx |
 | 명령어 메뉴 열림 | 아래 목록을 `.list--dim` (투명도 .35)으로 흐리게 | workspace/page.tsx |
 | 삭제 확인 | 다이얼로그 + 빨간 위험 아이콘 + "되살릴 수 없어요" 안내 | pages/[id]/page.tsx |
+| 사진 불러오는 중 | 같은 크기의 스켈레톤 + 시머 (스피너 쓰지 않음, 자리 크기가 고정돼 레이아웃이 흔들리지 않음), `aria-busy` | components/CoverImage.tsx |
+| 사진 불러오기 실패 | 커버 자리에 안내 문구 + "다시 불러오기" 버튼 | components/CoverImage.tsx |
 | 글 없음 | `.center-msg` + 돌아갈 버튼 | pages/[id]/page.tsx |
 | 폼 결과 | 입력 힌트 문구를 바꿔서 알림 ("저장했어요") | me/page.tsx |
 | 목표 글자 수 초과 | 그 줄만 `.doc-count__line--over` 빨간 글자(`--red-500`) + 문구 `· N자 초과` (색만으로 구분하지 않음). 목표와 같으면 초과 아님 | components/CharCounter.tsx |
@@ -378,11 +382,11 @@
 |---|---|
 | 로그인 부제 | 필요한 기능만 담았어요. 적고, 찾고, 지우기. |
 | 로그인 안내 | 한 번 로그인하면 다음부터 바로 열려요 |
+| 로그인 오류 | 로그인하지 못했어요. 잠시 후 다시 눌러 주세요 (로그인 안내 자리에 바꿔 보여 줌, `role="status"`) |
 | 로그인 푸터 | 1인 전용 · 공유 기능 없음 |
 | 명령어 placeholder | page 입력 후 Enter — 새 글 만들기 |
 | 명령어 설명 | 빈 글을 만들고 바로 열어요 |
 | 명령어 없음 | 일치하는 명령어가 없어요 |
-| 로그인 오류 | 로그인하지 못했어요. 잠시 후 다시 눌러 주세요 (로그인 안내 자리에 바꿔 보여 줌, `role="status"`) |
 | 빈 목록 | 아직 글이 없어요. /page 를 입력하고 Enter를 눌러 첫 글을 만들어 보세요. |
 | 삭제 확인 | 정말 삭제할까요? / ‘제목’를 지우면 되살릴 수 없어요. |
 | 글 없음 | 글을 찾을 수 없어요. 이미 삭제됐을 수 있어요. |
@@ -391,6 +395,7 @@
 | 로그아웃 안내 | 이 기기에서 로그인 상태를 끝내요 |
 | 글자 수 | 공백 포함 N자 · 공백 제외 N자 / 목표가 있으면 공백 포함 1,234 / 5,000자 · 234자 초과 |
 | 목표 글자 수 | 라벨 "목표 글자 수" · placeholder "예: 1,000" · 힌트 "비워 두면 글자 수만 보여요" → 오류 "1 이상의 숫자를 넣어 주세요" |
+| 커버 오류 | 고양이 사진을 불러오지 못했어요 / 버튼 "다시 불러오기" |
 | 시간 | 방금 · N분 전 · N시간 전 · 어제 · N일 전 · N월 N일 (lib/store.ts) |
 
 ### 말투 규칙
@@ -479,3 +484,5 @@
 | 10 | **Badge만 인라인 스타일 방식.** Button·Input은 `vt-` 클래스인데 Badge는 스타일 객체로 만들어져 hover 등 확장이 어려움 | Badge.tsx |
 | 11 | **`.muted`와 인라인 보조 글자 중복.** 같은 역할(13px, 회색)인데 `.muted`(`ink-600`)와 인라인 `ink-500`이 섞여 있음 | page.tsx, pages/[id]/page.tsx |
 | 12 | **아이콘을 외부 CDN(unpkg)에서 불러옴.** 네트워크가 끊기면 아이콘이 안 보임 | Icon.tsx |
+| 13 | **시머 속도 1.4s가 토큰 없음.** `--dur-*`에 긴 반복 애니메이션용 값이 없어 직접 씀 | globals.css `.cover--loading::after` |
+| 14 | **커버 흐린 배경 값이 토큰 없음.** `blur(28px)`, `brightness(.55)`, `scale(1.2)`를 직접 씀 | globals.css `.cover__backdrop` |

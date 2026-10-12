@@ -116,6 +116,18 @@ a{color:inherit;text-decoration:none}
 .doc-count{position:sticky;bottom:0;display:flex;flex-direction:column;gap:4px;padding:12px 0;background:var(--bg-page);box-shadow:inset 0 1px 0 var(--border-subtle);font-size:13px;color:var(--text-secondary);font-variant-numeric:tabular-nums}
 .doc-count__line--over{color:var(--red-500)}
 .rule{height:1px;background:var(--border-default)}
+/* 커버 이미지 — 로딩 중엔 스켈레톤 + 시머 (components/CoverImage.tsx) */
+.cover{position:relative;height:320px;border-radius:var(--radius-card);overflow:hidden;background:var(--surface-card)}
+.cover__img,.cover__backdrop{position:absolute;inset:0;display:block;width:100%;height:100%;opacity:0;transition:opacity var(--dur-base) var(--ease-out)}
+.cover__img{object-fit:contain}
+.cover__backdrop{object-fit:cover;filter:blur(28px) brightness(.55);transform:scale(1.2)}
+.cover--loaded .cover__img,.cover--loaded .cover__backdrop{opacity:1}
+.cover--loading::after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,var(--border-default),transparent);animation:shimmer 1.4s var(--ease-press) infinite}
+.cover--error{box-shadow:inset 0 0 0 1px var(--border-subtle);background:none}
+.cover__error{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.cover__error p{margin:0;font-size:14px;color:var(--text-secondary)}
+@keyframes shimmer{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.cover--loading::after{animation:none;transform:none;background:none}}
 
 .scrim{position:fixed;inset:0;background:var(--overlay-scrim);display:grid;place-items:center;z-index:50;padding:16px;animation:fade var(--dur-base) var(--ease-out)}
 .dialog{width:420px;max-width:100%;padding:28px;border-radius:16px;background:var(--ink-200);box-shadow:var(--shadow-pop),inset 0 0 0 1px var(--border-default);display:flex;flex-direction:column;gap:24px;animation:pop var(--dur-base) var(--ease-out)}
@@ -134,5 +146,6 @@ a{color:inherit;text-decoration:none}
   .login__bar,.login__foot{padding:16px}
   .doc{padding-top:40px}
   .doc__title{font-size:32px}
+  .cover{height:200px}
   .profile-card{flex-direction:column;align-items:flex-start}
 }

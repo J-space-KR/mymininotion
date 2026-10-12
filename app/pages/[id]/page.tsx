@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AuthGate } from "@/components/AuthGate";
 import { CharCounter } from "@/components/CharCounter";
+import { CoverImage } from "@/components/CoverImage";
 import { Button } from "@/components/ds/Button";
 import { Icon } from "@/components/ds/Icon";
 import { Input } from "@/components/ds/Input";
@@ -99,6 +100,7 @@ function Editor({ page }: { page: Page }) {
       </header>
 
       <main className="container doc" style={{ maxWidth: 752 }}>
+        <CoverImage />
         <span style={{ fontSize: 13, color: "var(--ink-500)" }}>{monthDay(page.updatedAt)} 수정</span>
         <textarea
           ref={titleRef}
