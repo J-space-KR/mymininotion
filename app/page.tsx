@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ds/Badge";
 import { Button } from "@/components/ds/Button";
 import { signInWithGoogle, useStore } from "@/lib/store";
@@ -11,14 +11,23 @@ export default function LoginPage() {
   const state = useStore();
   const router = useRouter();
   const signedIn = !!state?.user;
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (signedIn) router.replace("/workspace");
   }, [signedIn, router]);
 
-  function login() {
-    signInWithGoogle();
-    router.push("/workspace");
+  // L-1: 구글 로그인 창으로 이동한다. 돌아오면 위 effect가 업무 페이지로 보낸다.
+  async function login() {
+    setPending(true);
+    setFailed(false);
+    try {
+      await signInWithGoogle();
+    } catch {
+      setPending(false);
+      setFailed(true);
+    }
   }
 
   return (
@@ -38,11 +47,13 @@ export default function LoginPage() {
           필요한 기능만 담았어요. 적고, 찾고, 지우기.
         </p>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginTop: 8 }}>
-          <Button variant="white" size="lg" onClick={login} disabled={state === null} style={{ minWidth: 300 }}>
+          <Button variant="white" size="lg" onClick={login} disabled={state === null || pending} style={{ minWidth: 300 }}>
             <span className="g-mark">G</span>
             구글로 로그인
           </Button>
-          <span style={{ fontSize: 13, color: "var(--ink-500)" }}>한 번 로그인하면 다음부터 바로 열려요</span>
+          <span role="status" style={{ fontSize: 13, color: failed ? "var(--text-secondary)" : "var(--ink-500)" }}>
+            {failed ? "로그인하지 못했어요. 잠시 후 다시 눌러 주세요" : "한 번 로그인하면 다음부터 바로 열려요"}
+          </span>
         </div>
       </main>
       <footer className="login__foot">

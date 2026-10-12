@@ -1,9 +1,12 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
-// MVP mock backend: session + pages live in localStorage.
-// Swap these functions for Supabase calls later (PRD §7.3) — the pages only use this API.
+// Login uses real Supabase Auth (Google). The nickname lives in the Supabase `profile` table
+// (`name`, one row per user, created by a DB trigger on first login) and is cached in localStorage.
+// Pages and the avatar still live in localStorage until they move to Supabase (PRD §7.3).
 
 export type User = {
   email: string;
@@ -26,27 +29,52 @@ export type State = {
   pages: Page[];
 };
 
+/** What localStorage keeps. `profile` survives sign-out so nickname/avatar edits aren't lost. */
+type Saved = {
+  profile: User | null;
+  pages: Page[];
+};
+
 const KEY = "mini-notion:v1";
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
+let saved: Saved | null = null;
 let state: State | null = null;
+/** Email of the Supabase session, null when signed out. */
+let sessionEmail: string | null = null;
+/** auth.users id of the session — profile.user_id points to it. */
+let sessionUserId: string | null = null;
+/** False until Supabase has told us whether a session exists (avoids a wrong redirect on reload). */
+let authReady = false;
+let authStarted = false;
 const listeners = new Set<() => void>();
+
+function load(): Saved {
+  if (saved) return saved;
+  try {
+    const raw = localStorage.getItem(KEY);
+    const parsed = raw ? (JSON.parse(raw) as Partial<Saved> & { user?: User | null }) : {};
+    // Older saves stored the mock user under `user`.
+    saved = { profile: parsed.profile ?? parsed.user ?? null, pages: parsed.pages ?? [] };
+  } catch {
+    saved = { profile: null, pages: [] };
+  }
+  return saved;
+}
 
 function read(): State {
   if (state) return state;
-  try {
-    const raw = localStorage.getItem(KEY);
-    state = raw ? (JSON.parse(raw) as State) : { user: null, pages: [] };
-  } catch {
-    state = { user: null, pages: [] };
-  }
+  const s = load();
+  const user = sessionEmail && s.profile?.email === sessionEmail ? s.profile : null;
+  state = { user, pages: s.pages };
   return state;
 }
 
-function write(next: State) {
-  state = next;
+function save(next: Saved) {
+  saved = next;
+  state = null;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
@@ -55,10 +83,59 @@ function write(next: State) {
   listeners.forEach((l) => l());
 }
 
+function write(next: State) {
+  const s = load();
+  save({ profile: next.user ?? s.profile, pages: next.pages });
+}
+
+function applySession(session: Session | null) {
+  authReady = true;
+  const authUser = session?.user;
+  sessionEmail = authUser?.email ?? null;
+  sessionUserId = authUser?.id ?? null;
+  if (!authUser || !sessionEmail) {
+    state = null;
+    listeners.forEach((l) => l());
+    return;
+  }
+  const s = load();
+  const meta = authUser.user_metadata ?? {};
+  const profile: User =
+    s.profile?.email === sessionEmail
+      ? s.profile
+      : {
+          email: sessionEmail,
+          nickname: meta.full_name || meta.name || sessionEmail.split("@")[0],
+          avatarUrl: meta.avatar_url || meta.picture || null,
+        };
+  save({ profile, pages: s.pages.length ? s.pages : seedPages() });
+  void loadProfileName(authUser.id);
+}
+
+/** M-1: the nickname saved in Supabase wins over the local copy (it may have changed on another device). */
+async function loadProfileName(userId: string) {
+  const { data, error } = await supabase.from("profile").select("name").eq("user_id", userId).maybeSingle();
+  if (error || !data?.name || sessionUserId !== userId) return;
+  const s = load();
+  if (s.profile && s.profile.nickname !== data.name) {
+    save({ ...s, profile: { ...s.profile, nickname: data.name } });
+  }
+}
+
+/** Starts listening to Supabase Auth once. Fires INITIAL_SESSION after restoring the session
+ *  (and after finishing the Google redirect, when the URL carries a login code). */
+function startAuth() {
+  if (authStarted) return;
+  authStarted = true;
+  supabase.auth.onAuthStateChange((_event, session) => applySession(session));
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
+  startAuth();
   const onStorage = (e: StorageEvent) => {
     if (e.key === KEY) {
+      saved = null;
       state = null;
       listener();
     }
@@ -70,9 +147,13 @@ function subscribe(listener: () => void) {
   };
 }
 
-/** Returns null during SSR / before hydration, then the persisted state. */
+function snapshot(): State | null {
+  return authReady ? read() : null;
+}
+
+/** Returns null during SSR and until the login state is known, then the state. */
 export function useStore(): State | null {
-  return useSyncExternalStore(subscribe, read, () => null);
+  return useSyncExternalStore(subscribe, snapshot, () => null);
 }
 
 function newId() {
@@ -103,19 +184,40 @@ function seedPages(): Page[] {
 
 // ── Auth (L-1 ~ L-3, M-3) ──
 
-export function signInWithGoogle() {
-  const s = read();
-  write({
-    user: { email: "gildong.hong@gmail.com", nickname: "홍길동", avatarUrl: null },
-    pages: s.pages.length ? s.pages : seedPages(),
+/** L-1: sends the browser to Google. After login, Google → Supabase → back to "/" (then /workspace). */
+export async function signInWithGoogle() {
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${window.location.origin}/` },
   });
+  if (error) throw error;
 }
 
-export function signOut() {
-  write({ ...read(), user: null });
+export async function signOut() {
+  sessionEmail = null;
+  sessionUserId = null;
+  state = null;
+  listeners.forEach((l) => l());
+  await supabase.auth.signOut();
 }
 
-export function updateProfile(patch: Partial<Omit<User, "email">>) {
+/** M-1: saves the nickname to Supabase `profile.name`, then shows it. Throws when it couldn't be saved. */
+export async function saveNickname(nickname: string) {
+  const userId = sessionUserId;
+  if (!userId) throw new Error("not signed in");
+  const { data, error } = await supabase
+    .from("profile")
+    .update({ name: nickname })
+    .eq("user_id", userId)
+    .select("name");
+  if (error) throw error;
+  if (!data?.length) throw new Error("profile row not found");
+  const s = read();
+  if (s.user && sessionUserId === userId) write({ ...s, user: { ...s.user, nickname } });
+}
+
+/** M-2: the avatar has no column in `profile`, so it stays in localStorage. */
+export function updateProfile(patch: Partial<Pick<User, "avatarUrl">>) {
   const s = read();
   if (!s.user) return;
   write({ ...s, user: { ...s.user, ...patch } });

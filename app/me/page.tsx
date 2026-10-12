@@ -7,7 +7,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ds/Button";
 import { Input } from "@/components/ds/Input";
-import { signOut, updateProfile, type User } from "@/lib/store";
+import { saveNickname as saveNicknameToStore, signOut, updateProfile, type User } from "@/lib/store";
 
 // 1f 마이 페이지 · M-1 별명, M-2 이미지, M-3 로그아웃
 export default function MyPage() {
@@ -39,15 +39,25 @@ function Profile({ user }: { user: User }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [nickname, setNickname] = useState(user.nickname);
   const [hint, setHint] = useState("처음엔 구글 이름을 써요");
+  const [saving, setSaving] = useState(false);
   const trimmed = nickname.trim();
-  const canSave = trimmed.length > 0 && trimmed !== user.nickname;
+  const canSave = !saving && trimmed.length > 0 && trimmed !== user.nickname;
 
-  function saveNickname(e?: React.FormEvent) {
+  // M-1: 별명은 Supabase profile에 저장한다. 실패하면 입력은 그대로 두고 다시 누르게 한다.
+  async function saveNickname(e?: React.FormEvent) {
     e?.preventDefault();
     if (!canSave) return;
-    updateProfile({ nickname: trimmed });
-    setNickname(trimmed);
-    setHint("저장했어요");
+    setSaving(true);
+    setHint("저장 중…");
+    try {
+      await saveNicknameToStore(trimmed);
+      setNickname(trimmed);
+      setHint("저장했어요");
+    } catch {
+      setHint("저장하지 못했어요. 잠시 후 다시 눌러 주세요");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
