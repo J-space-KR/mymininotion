@@ -14,14 +14,14 @@
 
 | 키워드 | 코드에서 어디서 나오나 |
 |---|---|
-| **다크 전용** | 페이지 배경 `--bg-page: var(--ink-50)` (#0F1113), 로그인은 `#000` (globals.css) |
+| **다크 기본** | 페이지 배경 `--bg-page: var(--ink-50)` (#0F1113), 로그인은 `--bg-stage`(#000). 상단바 토글로 라이트 테마로 바꿀 수 있음 (globals.css, §2-4-1) |
 | **라임 한 가지 강조색** | `--volt-300` (#D1FE17) 하나만 강조에 사용 — 주요 버튼, 포커스, 캐럿, `/` 명령어, 선택 영역 (globals.css) |
 | **굵고 좁은 헤드라인** | 로그인 타이틀 `font-weight:900`, 자간 `-0.045em`, 대문자 / 페이지 제목 `800`, `-0.03em` (globals.css) |
 | **눌리는 입체 버튼** | 버튼 아래 단색 그림자 `0 4px 0 0`, 누르면 `translateY(3px)`로 내려감 (globals.css) |
 | **모노스페이스 명령어** | `/page` 입력창과 `.mono-accent`에 `--font-mono` + 라임색 (globals.css) |
 
 ### 하지 않는 것 (코드로 확인된 것만)
-- **라이트 모드 없음** — `prefers-color-scheme` 처리나 밝은 배경 테마가 없음 (globals.css)
+- **시스템 설정을 따르지 않음** — `prefers-color-scheme`은 쓰지 않고, 처음엔 항상 다크. 라이트는 사용자가 토글로 고를 때만 (lib/theme.ts)
 - **강조색 여러 개 섞지 않음** — 시맨틱 색(pink/orange/blue)은 정의만 있고, 화면에서는 red(삭제 아이콘)·green(저장됨 점)만 상태 표시에 씀 (globals.css, pages/[id]/page.tsx)
 - **그라데이션 없음** — `linear-gradient` / `radial-gradient` 사용 없음. **예외:** 커버 스켈레톤의 시머 띠(`.cover--loading::after`)만 투명 → `--border-default` → 투명 그라데이션을 씀 (globals.css)
 - **테두리(border) 대신 inset 그림자** — 입력창·카드·다이얼로그의 윤곽은 `box-shadow: inset 0 0 0 1px`로 그림 (globals.css)
@@ -72,7 +72,8 @@
 | `--pink-500` | `#FF2E8A` | `hot` 배지 |
 | `--pink-600` | `#E0136E` | (현재 미사용) |
 | `--orange-500` | `#FF7A1A` | (현재 미사용) |
-| `--red-500` | `#FF4545` | 위험(삭제) 아이콘, 목표 글자 수 초과 글자 |
+| `--red-500` | `#FF4545` | 위험(삭제) 아이콘, 목표 글자 수 초과 글자 (다크) |
+| `--red-600` | `#D42F2F` | 같은 용도 (라이트 — `red-500`은 흰 배경에서 대비 부족) |
 | `--blue-500` | `#3D8BFF` | (현재 미사용) |
 | `--green-500` | `#2BD67B` | "저장됨" 상태 점 |
 
@@ -88,15 +89,21 @@
 | 표면 | `--surface-card` | `var(--ink-200)` | 카드·입력창·다이얼로그 |
 | | `--surface-card-hover` | `var(--ink-300)` | 카드 hover |
 | | `--surface-chip` | `var(--ink-200)` | 칩·필 |
+| | `--surface-input` | `var(--ink-100)` | 명령어 입력창 |
+| | `--surface-secondary` | `var(--ink-300)` | secondary 버튼, neutral 배지 |
+| | `--surface-ghost-hover` | `rgba(255,255,255,0.06)` | ghost 버튼 hover |
 | | `--surface-inverse` | `var(--white)` | 반전 표면 (white 버튼) |
 | | `--surface-accent` | `var(--volt-300)` | 강조 표면 (primary 버튼) |
 | | `--surface-accent-soft` | `var(--volt-800)` | 옅은 강조 표면 |
 | 글자 | `--text-primary` | `var(--white)` | 기본 글자 |
+| | `--text-body` | `var(--ink-800)` | 글 상세 본문, neutral 배지 글자 |
+| | `--text-label` | `var(--ink-700)` | 입력창 라벨, 로그인 부제 |
 | | `--text-secondary` | `var(--ink-600)` | 보조 글자 |
 | | `--text-tertiary` | `var(--ink-500)` | 가장 흐린 글자 |
 | | `--text-on-accent` | `var(--ink-0)` | 라임 위의 글자 |
 | | `--text-accent` | `var(--volt-300)` | 강조 글자 |
 | | `--text-inverse` | `var(--ink-0)` | 흰 표면 위 글자 |
+| | `--text-danger` | `var(--red-500)` | 위험 아이콘, 목표 글자 수 초과 |
 | 테두리 | `--border-subtle` | `rgba(255,255,255,0.06)` | 구분선, 빈 상태 윤곽 |
 | | `--border-default` | `rgba(255,255,255,0.10)` | 입력창·카드 윤곽 |
 | | `--border-strong` | `rgba(255,255,255,0.18)` | 강한 윤곽 |
@@ -104,7 +111,36 @@
 | 강조 | `--accent` | `var(--volt-300)` | 강조색 |
 | | `--accent-edge` | `var(--volt-600)` | 강조 버튼 아래 그림자 |
 | | `--accent-hover` | `var(--volt-200)` | 강조 hover |
+| | `--focus-ring` | `var(--volt-300)` | 포커스 아웃라인, 입력창 포커스 테두리 |
+| 입체 그림자 | `--edge-default` | `var(--ink-0)` | secondary 버튼·프로필 카드 아래 그림자 |
+| | `--edge-inverse` | `#9A9EA3` | white 버튼 아래 그림자 |
 | 오버레이 | `--overlay-scrim` | `rgba(0,0,0,0.6)` | 다이얼로그 뒤 어두운 막 |
+
+### 2-4-1. 라이트 테마
+
+`<html data-theme="light">`일 때 `:root[data-theme="light"]`가 **시맨틱 별칭만** 다시 정의합니다. 원시 색(`--ink-*`, `--volt-*`)은 그대로라서, **테마를 따르려면 반드시 시맨틱 별칭을 써야 합니다.** 원시 색을 직접 쓰면 라이트에서도 다크 색이 그대로 남습니다.
+
+| 토큰 | 라이트 값 | 비고 |
+|---|---|---|
+| `--bg-page`, `--bg-stage` | `var(--white)` | |
+| `--surface-card`, `--surface-chip`, `--surface-input` | `var(--ink-900)` | |
+| `--surface-card-hover`, `--surface-secondary` | `var(--ink-800)` | |
+| `--surface-ghost-hover` | `rgba(0,0,0,0.05)` | |
+| `--surface-inverse` / `--text-inverse` | `var(--ink-200)` / `var(--white)` | "white" 버튼이 라이트에선 진한 버튼이 됨 |
+| `--surface-accent` | `var(--volt-300)` | 라임 버튼은 그대로 |
+| `--surface-accent-soft` | `var(--volt-100)` | |
+| `--text-primary` / `--text-body` / `--text-label` | `ink-50` / `ink-200` / `ink-400` | |
+| `--text-secondary` / `--text-tertiary` | `ink-500` / `ink-600` | |
+| `--text-accent`, `--focus-ring` | `var(--volt-700)` | **라임 글자·포커스는 올리브색으로.** `volt-300`은 흰 배경에서 대비 1.2:1이라 안 보임 |
+| `--text-danger` | `var(--red-600)` | |
+| `--border-subtle` / `default` / `strong` | `rgba(0,0,0, .06 / .10 / .18)` | |
+| `--edge-default` / `--edge-inverse` | `var(--ink-700)` / `var(--ink-0)` | |
+| `--overlay-scrim` | `rgba(0,0,0,0.4)` | |
+| `--shadow-pop` | `0 12px 32px rgba(0,0,0,0.12)` | |
+
+- `color-scheme`도 다크/라이트로 함께 바뀌어 스크롤바·기본 입력 요소 색이 맞춰집니다.
+- 테마 선택은 localStorage(`mini-notion:theme`)에 저장되고, `app/layout.tsx`의 인라인 스크립트(`lib/theme.ts`의 `THEME_SCRIPT`)가 첫 화면이 그려지기 전에 적용해 깜빡임이 없습니다. 화면 코드에서는 `lib/store.ts`의 `useTheme()` / `setTheme()`만 씁니다.
+- 테마 전환은 즉시 바뀝니다 (전환 애니메이션 없음).
 
 ### 2-5. 타이포그래피 토큰
 
@@ -276,7 +312,7 @@
 <Icon name="file-text" size={18} color="var(--ink-600)" />
 ```
 
-현재 쓰는 아이콘: `arrow-left`, `trash-2`, `file-plus`, `file-text`, `image`, `log-out`
+현재 쓰는 아이콘: `arrow-left`, `trash-2`, `file-plus`, `file-text`, `image`, `log-out`, `sun`, `moon`
 
 ### 5-5. Avatar (`components/Avatar.tsx`)
 
@@ -286,6 +322,17 @@
 
 ```tsx
 <Avatar user={user} size={30} />
+```
+
+### 5-5-1. ThemeToggle (`components/ThemeToggle.tsx`)
+
+- 다크/라이트 전환 버튼. `Button` `ghost` `sm` + 아이콘만 (글자 없음, 약 38×32px).
+- 아이콘은 **누르면 바뀔 모드**를 보여 줍니다: 다크일 때 `sun`, 라이트일 때 `moon`.
+- 아이콘 전용이라 `aria-label`과 `title`에 "밝은 화면으로 바꾸기" / "어두운 화면으로 바꾸기".
+- 위치: 로그인 뒤 모든 화면 상단바 오른쪽 — 업무(프로필 필 왼쪽, 간격 8px), 글 상세(저장 상태와 삭제 버튼 사이), 마이 페이지(오른쪽 끝). 로그인 화면엔 없음(저장된 테마는 따라감).
+
+```tsx
+<ThemeToggle />
 ```
 
 ### 5-6. 공통 패턴 (globals.css)
@@ -396,6 +443,7 @@
 | 글자 수 | 공백 포함 N자 · 공백 제외 N자 / 목표가 있으면 공백 포함 1,234 / 5,000자 · 234자 초과 |
 | 목표 글자 수 | 라벨 "목표 글자 수" · placeholder "예: 1,000" · 힌트 "비워 두면 글자 수만 보여요" → 오류 "1 이상의 숫자를 넣어 주세요" |
 | 커버 오류 | 고양이 사진을 불러오지 못했어요 / 버튼 "다시 불러오기" |
+| 테마 토글 (aria-label) | 밝은 화면으로 바꾸기 / 어두운 화면으로 바꾸기 |
 | 시간 | 방금 · N분 전 · N시간 전 · 어제 · N일 전 · N월 N일 (lib/store.ts) |
 
 ### 말투 규칙
@@ -435,6 +483,18 @@
 
 (대비값은 토큰 색으로 계산)
 
+**라이트 테마** (`white` 페이지 / `ink-900` 카드 위)
+
+| 토큰 | 페이지 | 카드 | 판정 |
+|---|---|---|---|
+| `--text-primary` (`ink-50`) | 18.9 | 17.0 | ✅ |
+| `--text-body` (`ink-200`) | 16.1 | 14.5 | ✅ |
+| `--text-label` (`ink-400`) | 10.8 | 9.7 | ✅ |
+| `--text-secondary` (`ink-500`) | 6.2 | 5.6 | ✅ |
+| `--text-tertiary` (`ink-600`) | 3.3 | **2.9** | ⚠️ 다크와 같이 부가 정보에만 |
+| `--text-accent`, `--focus-ring` (`volt-700`) | 5.5 | 5.0 | ✅ (soft 표면 `volt-100` 위 5.1) |
+| `--text-danger` (`red-600`) | 4.9 | 4.5 | ✅ |
+
 ### 관례
 - **포커스 표시:** 모든 요소에 라임 `:focus-visible` 아웃라인. 입력창은 라임 inset 테두리. 포커스 표시를 지우지 않습니다.
 - **아이콘:** `Icon`은 항상 `aria-hidden="true"`. 아이콘만 있는 버튼을 만들 땐 `aria-label`을 붙입니다.
@@ -451,7 +511,7 @@
 
 ## 9. 새 화면을 만들 때 체크리스트
 
-- [ ] 배경은 다크(`--bg-page`)이고, 라이트 색 배경을 새로 만들지 않았다
+- [ ] 배경은 `--bg-page`이고, 색은 **시맨틱 별칭만** 써서 다크·라이트 두 테마에서 모두 확인했다
 - [ ] 라임 강조(`primary` 버튼 등)는 화면당 **핵심 행동 1개**에만 썼다
 - [ ] 색·모서리·그림자·시간 값을 직접 쓰지 않고 **토큰(시맨틱 별칭 우선)**을 썼다
 - [ ] 버튼·입력창·배지·아이콘은 `components/ds/`의 것을 재사용했다
@@ -472,9 +532,9 @@
 
 | # | 내용 | 위치 |
 |---|---|---|
-| 1 | **시맨틱 별칭이 대부분 쓰이지 않음.** `--surface-card`, `--surface-card-hover`, `--surface-accent`, `--text-accent`, `--text-on-accent`, `--accent`, `--accent-edge`, `--bg-stage` 등이 정의만 있고, 코드는 `--ink-200`, `--volt-300` 같은 원시 색을 직접 씀 | globals.css 전반, 각 page.tsx |
-| 2 | **하드코딩된 `#000` / `#fff`.** 토큰(`--text-on-accent`, `--white`, `--bg-stage`) 대신 직접 씀 | globals.css `::selection`, `.vt-btn--*`, `.vt-input input`, `.avatar`, `.cmd__*`, `.doc__*`, `.login`(배경 `#000`), `.g-mark`, `.profile-card`; Badge.tsx |
-| 3 | **토큰 없는 색 값.** white 버튼 그림자 `#9A9EA3`, 위험 아이콘 배경 `rgba(255,69,69,.14)`, dark 배지 `rgba(0,0,0,.55)`, ghost hover `rgba(255,255,255,.06)`(= `--border-subtle` 값과 같음) | globals.css, Badge.tsx |
+| 1 | ~~시맨틱 별칭이 대부분 쓰이지 않음~~ → 라이트 테마 작업에서 globals.css와 각 화면의 색을 모두 시맨틱 별칭으로 바꿈. **남은 것:** Badge `soft` 테두리 `--volt-700` | Badge.tsx |
+| 2 | ~~하드코딩된 `#000` / `#fff`~~ → 토큰으로 바꿈. **남은 것:** Badge `hot`·`dark`의 `#fff` (분홍·사진 위라 두 테마 모두 같아야 해서 그대로 둠) | Badge.tsx |
+| 3 | **토큰 없는 색 값.** 위험 아이콘 배경 `rgba(255,69,69,.14)`, dark 배지 `rgba(0,0,0,.55)` (white 버튼 그림자·ghost hover는 `--edge-inverse`·`--surface-ghost-hover`로 토큰화함) | globals.css, Badge.tsx |
 | 4 | **`--radius-card` 토큰이 쓰이지 않음.** 12px을 직접 씀. 또 토큰에 없는 모서리 값 4px(kbd), 10px(row, danger-icon), 16px(dialog), 999px(pill)이 섞여 있음 | globals.css |
 | 5 | **`--ls-heading`(-0.02em) 토큰이 쓰이지 않음.** 제목 자간이 `-0.03em`(h2, 글 제목), `-0.02em`(다이얼로그), `-0.04em`(워드마크)으로 제각각 | globals.css |
 | 6 | **같은 페이지 제목 스타일이 두 번 정의됨.** 업무 페이지는 `.page-head h2` 클래스, 마이 페이지는 같은 값을 인라인 스타일로 반복 | globals.css, me/page.tsx |

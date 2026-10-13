@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AuthGate } from "@/components/AuthGate";
 import { Avatar } from "@/components/Avatar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Icon } from "@/components/ds/Icon";
 import { createPage, relativeTime, sortedPages, type Page, type User } from "@/lib/store";
 
@@ -54,10 +55,13 @@ function Workspace({ user, pages }: { user: User; pages: Page[] }) {
     <div className="app">
       <header className="topbar">
         <Link href="/workspace" className="wordmark">MINI NOTION</Link>
-        <Link href="/me" className="profile-pill" aria-label="마이 페이지">
-          <span className="profile-pill__name">{user.nickname}</span>
-          <Avatar user={user} size={30} />
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <ThemeToggle />
+          <Link href="/me" className="profile-pill" aria-label="마이 페이지">
+            <span className="profile-pill__name">{user.nickname}</span>
+            <Avatar user={user} size={30} />
+          </Link>
+        </div>
       </header>
 
       <main className="container" style={{ maxWidth: 792, paddingTop: 56, paddingBottom: 80, display: "flex", flexDirection: "column", gap: 28 }}>
@@ -101,9 +105,9 @@ function Workspace({ user, pages }: { user: User; pages: Page[] }) {
                     <span style={{ fontSize: 14, fontWeight: 700 }}>
                       <span className="mono-accent">/{c.name}</span> {c.label}
                     </span>
-                    <span style={{ fontSize: 12, color: "var(--ink-600)" }}>{c.desc}</span>
+                    <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{c.desc}</span>
                   </span>
-                  <span className="kbd" style={{ color: "var(--volt-300)", boxShadow: "inset 0 0 0 1px var(--volt-600)" }}>
+                  <span className="kbd" style={{ color: "var(--text-accent)", boxShadow: "inset 0 0 0 1px var(--border-accent)" }}>
                     Enter ↵
                   </span>
                 </button>
@@ -122,7 +126,7 @@ function Workspace({ user, pages }: { user: User; pages: Page[] }) {
           <nav className={`list${menuOpen ? " list--dim" : ""}`} aria-label="글 목록">
             {list.map((p) => (
               <Link key={p.id} href={`/pages/${p.id}`} className="row">
-                <Icon name="file-text" size={18} color="var(--ink-600)" />
+                <Icon name="file-text" size={18} color="var(--text-secondary)" />
                 <span className="row__text">
                   <span className={`row__title${p.title ? "" : " row__title--empty"}`}>{p.title || "제목 없음"}</span>
                   <span className="row__snippet">{p.content.split("\n").find((l) => l.trim()) || "내용 없음"}</span>

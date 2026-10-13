@@ -41,9 +41,9 @@ export default function LoginPage() {
         <h1 className="login__title">
           Mini
           <br />
-          <span style={{ color: "var(--volt-300)" }}>Notion</span>
+          <span style={{ color: "var(--text-accent)" }}>Notion</span>
         </h1>
-        <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5, color: "var(--ink-700)" }}>
+        <p style={{ margin: 0, fontSize: 18, lineHeight: 1.5, color: "var(--text-label)" }}>
           필요한 기능만 담았어요. 적고, 찾고, 지우기.
         </p>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginTop: 8 }}>
@@ -51,7 +51,7 @@ export default function LoginPage() {
             <span className="g-mark">G</span>
             구글로 로그인
           </Button>
-          <span role="status" style={{ fontSize: 13, color: failed ? "var(--text-secondary)" : "var(--ink-500)" }}>
+          <span role="status" style={{ fontSize: 13, color: failed ? "var(--text-secondary)" : "var(--text-tertiary)" }}>
             {failed ? "로그인하지 못했어요. 잠시 후 다시 눌러 주세요" : "한 번 로그인하면 다음부터 바로 열려요"}
           </span>
         </div>
