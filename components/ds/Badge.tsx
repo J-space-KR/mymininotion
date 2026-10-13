@@ -2,10 +2,10 @@ import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "./Icon";
 
 const TONES: Record<string, CSSProperties> = {
-  new: { background: "var(--volt-300)", color: "#000" },
+  new: { background: "var(--surface-accent)", color: "var(--text-on-accent)" },
   hot: { background: "var(--pink-500)", color: "#fff" },
-  soft: { background: "var(--volt-800)", color: "var(--volt-300)", boxShadow: "inset 0 0 0 1px var(--volt-700)" },
-  neutral: { background: "var(--ink-300)", color: "var(--ink-800)" },
+  soft: { background: "var(--surface-accent-soft)", color: "var(--text-accent)", boxShadow: "inset 0 0 0 1px var(--volt-700)" },
+  neutral: { background: "var(--surface-secondary)", color: "var(--text-body)" },
   dark: { background: "rgba(0,0,0,.55)", color: "#fff" },
 };
 

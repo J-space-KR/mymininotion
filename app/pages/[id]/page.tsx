@@ -5,6 +5,7 @@ import { useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "
 import { AuthGate } from "@/components/AuthGate";
 import { CharCounter } from "@/components/CharCounter";
 import { CoverImage } from "@/components/CoverImage";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ds/Button";
 import { Icon } from "@/components/ds/Icon";
 import { Input } from "@/components/ds/Input";
@@ -92,16 +93,17 @@ function Editor({ page }: { page: Page }) {
         <Button variant="ghost" size="sm" icon="arrow-left" href="/workspace">목록</Button>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span className="save-state" aria-live="polite">
-            <span className="dot" style={{ background: dirty ? "var(--ink-500)" : "var(--green-500)" }} />
+            <span className="dot" style={{ background: dirty ? "var(--text-tertiary)" : "var(--green-500)" }} />
             {dirty ? "저장 중…" : "저장됨"}
           </span>
+          <ThemeToggle />
           <Button variant="secondary" size="sm" icon="trash-2" onClick={() => setConfirming(true)}>삭제</Button>
         </div>
       </header>
 
       <main className="container doc" style={{ maxWidth: 752 }}>
         <CoverImage />
-        <span style={{ fontSize: 13, color: "var(--ink-500)" }}>{monthDay(page.updatedAt)} 수정</span>
+        <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>{monthDay(page.updatedAt)} 수정</span>
         <textarea
           ref={titleRef}
           className="doc__title"

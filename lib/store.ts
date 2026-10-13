@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { THEME_KEY, type Theme } from "@/lib/theme";
 
 // Login uses real Supabase Auth (Google). The nickname lives in the Supabase `profile` table
 // (`name`, one row per user, created by a DB trigger on first login) and is cached in localStorage.
@@ -311,6 +312,50 @@ export function deletePage(id: string): Promise<void> {
     if (sessionUserId === userId) void loadPages(userId);
   });
   return deleting;
+}
+
+// ── Theme ──
+// The choice lives in localStorage and as `data-theme` on <html>. app/layout.tsx applies it
+// before the first paint (THEME_SCRIPT in lib/theme.ts).
+
+const themeListeners = new Set<() => void>();
+
+function themeSnapshot(): Theme {
+  return document.documentElement.dataset.theme === "pc" ? "pc" : "dark";
+}
+
+function subscribeTheme(listener: () => void) {
+  themeListeners.add(listener);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key !== THEME_KEY) return;
+    applyTheme(e.newValue === "pc" ? "pc" : "dark");
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    themeListeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function applyTheme(theme: Theme) {
+  if (theme === "pc") document.documentElement.dataset.theme = "pc";
+  else delete document.documentElement.dataset.theme;
+  themeListeners.forEach((l) => l());
+}
+
+/** Dark during SSR, then the theme the page is actually showing. */
+export function useTheme(): Theme {
+  return useSyncExternalStore(subscribeTheme, themeSnapshot, () => "dark");
+}
+
+export function setTheme(theme: Theme) {
+  applyTheme(theme);
+  try {
+    if (theme === "pc") localStorage.setItem(THEME_KEY, "pc");
+    else localStorage.removeItem(THEME_KEY);
+  } catch {
+    // Storage blocked — the theme still applies until the page is closed.
+  }
 }
 
 // ── Formatting ──

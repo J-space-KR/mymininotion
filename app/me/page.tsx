@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { AuthGate } from "@/components/AuthGate";
 import { Avatar } from "@/components/Avatar";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ds/Button";
 import { Input } from "@/components/ds/Input";
 import { saveNickname as saveNicknameToStore, signOut, updateProfile, type User } from "@/lib/store";
@@ -79,9 +80,14 @@ function Profile({ user }: { user: User }) {
   return (
     <div className="app">
       <header className="topbar topbar--tight">
-        <Button variant="ghost" size="sm" icon="arrow-left" href="/workspace">내 업무</Button>
+        {/* 양쪽 칸을 같은 폭(flex: 1)으로 둬서 워드마크가 가운데에 오게 함 */}
+        <div style={{ flex: 1, display: "flex" }}>
+          <Button variant="ghost" size="sm" icon="arrow-left" href="/workspace">내 업무</Button>
+        </div>
         <Link href="/workspace" className="wordmark">MINI NOTION</Link>
-        <span style={{ width: 90 }} />
+        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="container" style={{ maxWidth: 552, paddingTop: 72, paddingBottom: 80, display: "flex", flexDirection: "column", gap: 32 }}>
@@ -125,7 +131,7 @@ function Profile({ user }: { user: User }) {
         <div style={{ height: 1, background: "var(--border-subtle)" }} />
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 14, color: "var(--ink-600)" }}>이 기기에서 로그인 상태를 끝내요</span>
+          <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>이 기기에서 로그인 상태를 끝내요</span>
           <Button variant="ghost" icon="log-out" onClick={logout}>로그아웃</Button>
         </div>
       </main>
