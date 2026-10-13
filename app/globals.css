@@ -5,7 +5,7 @@
 /* Ink — near-black neutrals, slightly cool */
 --ink-0:#000000;--ink-50:#0F1113;--ink-100:#16181B;--ink-200:#1F2124;--ink-300:#2A2D31;--ink-400:#3A3E43;--ink-500:#5C6168;--ink-600:#8A8F96;--ink-700:#B4B8BD;--ink-800:#DADCDF;--ink-900:#F2F3F4;--white:#FFFFFF;
 /* Semantic hues */
---pink-500:#FF2E8A;--pink-600:#E0136E;--orange-500:#FF7A1A;--red-500:#FF4545;--red-600:#D42F2F;--blue-500:#3D8BFF;--green-500:#2BD67B;
+--pink-500:#FF2E8A;--pink-600:#E0136E;--orange-500:#FF7A1A;--red-500:#FF4545;--blue-500:#3D8BFF;--green-500:#2BD67B;
 /* Semantic aliases — dark theme (default) */
 color-scheme:dark;
 --bg-page:var(--ink-50);--bg-stage:var(--ink-0);--surface-card:var(--ink-200);--surface-card-hover:var(--ink-300);--surface-chip:var(--ink-200);--surface-input:var(--ink-100);--surface-secondary:var(--ink-300);--surface-ghost-hover:rgba(255,255,255,0.06);--surface-inverse:var(--white);--surface-accent:var(--volt-300);--surface-accent-soft:var(--volt-800);
@@ -17,7 +17,7 @@ color-scheme:dark;
 
 /* Typography */
 --font-sans:"Pretendard Variable","Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
---font-mono:ui-monospace,Menlo,Consolas,monospace;
+--font-mono-fallback:ui-monospace,Menlo,Consolas,monospace;--font-mono:var(--font-mono-fallback);
 --ls-display:-0.045em;--ls-heading:-0.02em;--ls-body:-0.01em;
 
 /* Spacing / radius / shadow / motion */
@@ -27,18 +27,26 @@ color-scheme:dark;
 --dur-fast:120ms;--dur-base:200ms;
 }
 
-/* Light theme — only the semantic aliases change. Lime stays the accent surface,
-   but lime text/outlines use volt-700 because volt-300 is unreadable on white. */
-:root[data-theme="light"]{
-color-scheme:light;
---bg-page:var(--white);--bg-stage:var(--white);--surface-card:var(--ink-900);--surface-card-hover:var(--ink-800);--surface-chip:var(--ink-900);--surface-input:var(--ink-900);--surface-secondary:var(--ink-800);--surface-ghost-hover:rgba(0,0,0,0.05);--surface-inverse:var(--ink-200);--surface-accent:var(--volt-300);--surface-accent-soft:var(--volt-100);
---text-primary:var(--ink-50);--text-body:var(--ink-200);--text-label:var(--ink-400);--text-secondary:var(--ink-500);--text-tertiary:var(--ink-600);--text-on-accent:var(--ink-0);--text-accent:var(--volt-700);--text-inverse:var(--white);--text-danger:var(--red-600);
---border-subtle:rgba(0,0,0,0.06);--border-default:rgba(0,0,0,0.10);--border-strong:rgba(0,0,0,0.18);--border-accent:var(--volt-600);
---focus-ring:var(--volt-700);
---edge-default:var(--ink-700);--edge-inverse:var(--ink-0);
---overlay-scrim:rgba(0,0,0,0.4);
---shadow-pop:0 12px 32px rgba(0,0,0,0.12);
+/* PC통신 모드 — 90년대 PC통신 접속 프로그램(이야기·새롬데이터맨)의 파란 바탕 + 흰 글자 화면.
+   시맨틱 별칭만 바꾸고, 픽셀 글꼴(둥근모꼴)·각진 모서리·딱딱한 그림자로 분위기를 냄. */
+@font-face{font-family:"DungGeunMo";src:url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/DungGeunMo.woff") format("woff");font-weight:normal;font-style:normal;font-display:swap}
+:root[data-theme="pc"]{
+color-scheme:dark;
+/* DOS/CGA 팔레트 */
+--dos-blue:#0000AA;--dos-navy:#000080;--dos-bright-blue:#0000FF;--dos-gray:#AAAAAA;--dos-silver:#C0C0C0;--dos-light:#E0E0E0;--dos-cyan:#55FFFF;--dos-yellow:#FFFF55;--dos-olive:#AAAA00;--dos-lilac:#9999EE;--dos-red:#FF7777;
+--bg-page:var(--dos-blue);--bg-stage:var(--dos-blue);--surface-card:var(--dos-navy);--surface-card-hover:var(--dos-bright-blue);--surface-chip:var(--dos-navy);--surface-input:var(--dos-navy);--surface-secondary:var(--dos-bright-blue);--surface-ghost-hover:rgba(255,255,255,0.12);--surface-inverse:var(--dos-gray);--surface-accent:var(--dos-yellow);--surface-accent-soft:var(--dos-bright-blue);
+--text-primary:var(--white);--text-body:var(--dos-light);--text-label:var(--dos-cyan);--text-secondary:var(--dos-silver);--text-tertiary:var(--dos-lilac);--text-on-accent:var(--ink-0);--text-accent:var(--dos-yellow);--text-inverse:var(--ink-0);--text-danger:var(--dos-red);
+--border-subtle:rgba(255,255,255,0.25);--border-default:rgba(255,255,255,0.40);--border-strong:rgba(255,255,255,0.60);--border-accent:var(--dos-yellow);
+--accent:var(--dos-yellow);--accent-edge:var(--dos-olive);--accent-hover:var(--dos-yellow);--focus-ring:var(--dos-yellow);
+--edge-default:var(--ink-0);--edge-inverse:var(--ink-0);
+--overlay-scrim:rgba(0,0,0,0.5);
+--shadow-pop:8px 8px 0 var(--ink-0);
+--font-sans:"DungGeunMo",var(--font-mono-fallback);--font-mono:"DungGeunMo",var(--font-mono-fallback);
+--ls-display:0;--ls-heading:0;--ls-body:0;
+--radius-button:0;--radius-card:0;
 }
+/* 픽셀 글꼴은 굵기·자간을 흉내 내면 뭉개지고, 둥근 모서리는 당시 화면에 없음 */
+:root[data-theme="pc"] *,:root[data-theme="pc"] *::before,:root[data-theme="pc"] *::after{border-radius:0 !important;letter-spacing:0 !important;font-synthesis:none}
 
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg-page);color:var(--text-primary);font-family:var(--font-sans);letter-spacing:var(--ls-body);-webkit-font-smoothing:antialiased}
@@ -81,6 +89,9 @@ a{color:inherit;text-decoration:none}
 .avatar{border-radius:50%;background:var(--surface-accent);color:var(--text-on-accent);display:grid;place-items:center;font-weight:800;flex:none;overflow:hidden}
 .avatar img{width:100%;height:100%;object-fit:cover}
 .container{width:100%;margin:0 auto;padding-left:16px;padding-right:16px}
+/* 화면 모드 전환 (components/ThemeToggle.tsx) — 지금 모드는 white sm 버튼, 나머지는 ghost */
+.theme-switch{display:flex;gap:4px;padding:4px;border-radius:var(--radius-button);box-shadow:inset 0 0 0 1px var(--border-default)}
+.theme-switch .vt-btn{height:28px;padding:0 10px;font-size:13px}
 
 /* ── 1a Login ── */
 .login{min-height:100vh;background:var(--bg-stage);display:grid;grid-template-rows:auto 1fr auto}
@@ -158,6 +169,7 @@ a{color:inherit;text-decoration:none}
 
 @media (max-width:640px){
   .topbar{padding:12px 16px}
+  .theme-switch__suffix{display:none}
   .login__bar,.login__foot{padding:16px}
   .doc{padding-top:40px}
   .doc__title{font-size:32px}

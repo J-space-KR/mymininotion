@@ -2,20 +2,30 @@
 
 import { Button } from "@/components/ds/Button";
 import { setTheme, useTheme } from "@/lib/store";
+import type { Theme } from "@/lib/theme";
 
-/** 상단바 오른쪽의 다크/라이트 전환 버튼. 아이콘은 눌렀을 때 바뀔 모드를 보여 준다. */
+const OPTIONS: { theme: Theme; label: string }[] = [
+  { theme: "dark", label: "다크" },
+  { theme: "pc", label: "PC통신" },
+];
+
+/** 상단바의 화면 모드 전환. 두 모드를 글자로 나란히 보여 주고, 지금 모드를 white 버튼으로 강조한다. */
 export function ThemeToggle() {
-  const theme = useTheme();
-  const next = theme === "dark" ? "light" : "dark";
-  const label = next === "light" ? "밝은 화면으로 바꾸기" : "어두운 화면으로 바꾸기";
+  const current = useTheme();
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      icon={next === "light" ? "sun" : "moon"}
-      aria-label={label}
-      title={label}
-      onClick={() => setTheme(next)}
-    />
+    <div className="theme-switch" role="group" aria-label="화면 모드">
+      {OPTIONS.map(({ theme, label }) => (
+        <Button
+          key={theme}
+          variant={theme === current ? "white" : "ghost"}
+          size="sm"
+          aria-pressed={theme === current}
+          onClick={() => setTheme(theme)}
+        >
+          {label}
+          <span className="theme-switch__suffix"> 모드</span>
+        </Button>
+      ))}
+    </div>
   );
 }

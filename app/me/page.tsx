@@ -80,9 +80,12 @@ function Profile({ user }: { user: User }) {
   return (
     <div className="app">
       <header className="topbar topbar--tight">
-        <Button variant="ghost" size="sm" icon="arrow-left" href="/workspace">내 업무</Button>
+        {/* 양쪽 칸을 같은 폭(flex: 1)으로 둬서 워드마크가 가운데에 오게 함 */}
+        <div style={{ flex: 1, display: "flex" }}>
+          <Button variant="ghost" size="sm" icon="arrow-left" href="/workspace">내 업무</Button>
+        </div>
         <Link href="/workspace" className="wordmark">MINI NOTION</Link>
-        <div style={{ width: 90, display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
           <ThemeToggle />
         </div>
       </header>

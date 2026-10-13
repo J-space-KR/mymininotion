@@ -261,14 +261,14 @@ export function deletePage(id: string) {
 const themeListeners = new Set<() => void>();
 
 function themeSnapshot(): Theme {
-  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  return document.documentElement.dataset.theme === "pc" ? "pc" : "dark";
 }
 
 function subscribeTheme(listener: () => void) {
   themeListeners.add(listener);
   const onStorage = (e: StorageEvent) => {
     if (e.key !== THEME_KEY) return;
-    applyTheme(e.newValue === "light" ? "light" : "dark");
+    applyTheme(e.newValue === "pc" ? "pc" : "dark");
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -278,7 +278,7 @@ function subscribeTheme(listener: () => void) {
 }
 
 function applyTheme(theme: Theme) {
-  if (theme === "light") document.documentElement.dataset.theme = "light";
+  if (theme === "pc") document.documentElement.dataset.theme = "pc";
   else delete document.documentElement.dataset.theme;
   themeListeners.forEach((l) => l());
 }
@@ -291,7 +291,7 @@ export function useTheme(): Theme {
 export function setTheme(theme: Theme) {
   applyTheme(theme);
   try {
-    if (theme === "light") localStorage.setItem(THEME_KEY, "light");
+    if (theme === "pc") localStorage.setItem(THEME_KEY, "pc");
     else localStorage.removeItem(THEME_KEY);
   } catch {
     // Storage blocked — the theme still applies until the page is closed.
