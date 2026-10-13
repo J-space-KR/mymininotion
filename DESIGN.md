@@ -180,6 +180,7 @@
 | `.doc` | 위 여백 72px → 40px |
 | `.doc__title` | 44px → 32px |
 | `.profile-card` | 가로 → 세로 배치, 왼쪽 정렬 |
+| `.sidebar` | 접힌 56px 띠만 자리를 차지(`.shell` 왼쪽 여백 56px)하고, 펼치면 본문 위에 떠요(`position: fixed`, `--shadow-pop`) |
 
 ### 권장 간격 단위
 코드에서 쓰인 값을 모으면 **4px 단위**가 기본입니다.
@@ -276,7 +277,7 @@
 <Icon name="file-text" size={18} color="var(--ink-600)" />
 ```
 
-현재 쓰는 아이콘: `arrow-left`, `trash-2`, `file-plus`, `file-text`, `image`, `log-out`
+현재 쓰는 아이콘: `arrow-left`, `trash-2`, `file-plus`, `file-text`, `image`, `log-out`, `panel-left-close`, `panel-left-open`, `layout-list`, `user`
 
 ### 5-5. Avatar (`components/Avatar.tsx`)
 
@@ -304,6 +305,7 @@
 | 구분선 | `.rule` | 높이 1px, `border-default` |
 | 글자 수 바 | `.doc-count`, `.doc-count__line` | 글 상세 내용 아래, 화면 아래에 붙음(`position: sticky; bottom: 0`). 배경 `--bg-page`, 위쪽 윤곽 `inset 0 1px 0 var(--border-subtle)`, 13px `--text-secondary`, `tabular-nums`, 패딩 12px 0, 줄 간격 4px. `role="group"` + `aria-label="글자 수"`, `aria-live` 없음 (components/CharCounter.tsx) |
 | 커버 이미지 | `.cover`, `.cover__img`, `.cover__backdrop`, `.cover__error` | 글 상세 제목 위. 높이 320px(모바일 200px), 모서리 `--radius-card`, 배경 `--surface-card`. **사진은 자르지 않음**: `.cover__img`는 `object-fit: contain`으로 통째로, 남는 양옆은 같은 사진을 `.cover__backdrop`(`object-fit: cover`, `blur(28px) brightness(.55)`, `scale(1.2)`, `aria-hidden`)으로 흐리게 깔아 채움. 상태 변형 `--loading`(스켈레톤 + 시머) / `--loaded`(사진이 `--dur-base` 동안 서서히 보임) / `--error`(`border-subtle` 윤곽 + 안내 + secondary sm "다시 불러오기"). 고양이 API `https://cataas.com/cat/cute`에서 열 때마다 새로 받고 저장하지 않음 (components/CoverImage.tsx) |
+| 사이드바 | `.shell`, `.sidebar`, `.sidebar__toggle`, `.sidebar__nav`, `.sidebar__item`, `.sidebar__label` | 업무·글 상세 왼쪽. `.shell`(가로 flex)이 `.sidebar` + `.app`을 감쌈. 폭 240px ↔ 접으면 56px(아이콘 띠), `width`를 `--dur-base`/`--ease-out`으로 바꿈(`prefers-reduced-motion`이면 즉시). 화면 높이에 붙음(`sticky`, `100vh`), 배경 `--bg-page`, 오른쪽 윤곽 `inset -1px 0 0 var(--border-subtle)`. 맨 위 ghost sm 아이콘 버튼(32px 정사각)으로 접기/펼치기. 항목 높이 32px, 14px `--text-secondary` → hover·현재 화면(`aria-current="page"`) `--surface-card` 배경 + `--text-primary`. 펼쳤을 때만 "내 글" 라벨 + 글 목록(최근 수정 순). 접은 상태는 `lib/store.ts`의 `useSidebarCollapsed`/`setSidebarCollapsed`로 이 브라우저에 기억 (components/Sidebar.tsx) |
 | 가운데 메시지 | `.center-msg` | 최소 높이 60vh, 가운데 정렬 (글 없음 등) |
 
 ### 5-7. 새 컴포넌트를 만들 때 규칙
@@ -355,6 +357,7 @@
 | 사진 불러오기 실패 | 커버 자리에 안내 문구 + "다시 불러오기" 버튼 | components/CoverImage.tsx |
 | 글 없음 | `.center-msg` + 돌아갈 버튼 | pages/[id]/page.tsx |
 | 폼 결과 | 입력 힌트 문구를 바꿔서 알림 ("저장했어요") | me/page.tsx |
+| 사이드바 접힘 | 아이콘만 남고 글 목록은 숨김. 아이콘 링크엔 `aria-label`·`title`로 이름을 붙임. 새로고침·화면 이동 후에도 유지 | components/Sidebar.tsx |
 | 목표 글자 수 초과 | 그 줄만 `.doc-count__line--over` 빨간 글자(`--red-500`) + 문구 `· N자 초과` (색만으로 구분하지 않음). 목표와 같으면 초과 아님 | components/CharCounter.tsx |
 
 ### 키보드 조작
@@ -396,6 +399,7 @@
 | 글자 수 | 공백 포함 N자 · 공백 제외 N자 / 목표가 있으면 공백 포함 1,234 / 5,000자 · 234자 초과 |
 | 목표 글자 수 | 라벨 "목표 글자 수" · placeholder "예: 1,000" · 힌트 "비워 두면 글자 수만 보여요" → 오류 "1 이상의 숫자를 넣어 주세요" |
 | 커버 오류 | 고양이 사진을 불러오지 못했어요 / 버튼 "다시 불러오기" |
+| 사이드바 | 버튼 이름 "사이드바 접기" / "사이드바 펼치기" · 메뉴 "내 업무", "마이 페이지" · 라벨 "내 글" · 빈 목록 "아직 글이 없어요. 내 업무에서 새 글을 만들어 보세요." |
 | 시간 | 방금 · N분 전 · N시간 전 · 어제 · N일 전 · N월 N일 (lib/store.ts) |
 
 ### 말투 규칙
@@ -442,6 +446,7 @@
   - 프로필 필 링크 `aria-label="마이 페이지"`, 명령어 입력 `aria-label="명령어 입력"`, 제목/내용 textarea `aria-label`
   - 명령어 메뉴 `role="listbox"` + 항목 `role="option"` + `aria-selected`
   - 글 목록 `<nav aria-label="글 목록">`
+  - 사이드바 접기 버튼 `aria-expanded` + `aria-controls="sidebar"`, 내비 `<nav aria-label="화면 이동">` / `<nav aria-label="사이드바 글 목록">`, 현재 화면 `aria-current="page"`
   - 저장 상태 `aria-live="polite"`
   - 삭제 다이얼로그 `role="alertdialog"`, `aria-modal="true"`, `aria-labelledby`
 - **언어:** `<html lang="ko">` (layout.tsx)

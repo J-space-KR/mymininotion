@@ -8,6 +8,7 @@ import { CoverImage } from "@/components/CoverImage";
 import { Button } from "@/components/ds/Button";
 import { Icon } from "@/components/ds/Icon";
 import { Input } from "@/components/ds/Input";
+import { Sidebar } from "@/components/Sidebar";
 import { parseTarget } from "@/lib/charCount";
 import { deletePage, monthDay, savePage, type Page } from "@/lib/store";
 
@@ -22,7 +23,7 @@ export default function DetailPage() {
     <AuthGate>
       {({ pages }) => {
         const page = pages.find((p) => p.id === id);
-        if (page) return <Editor key={page.id} page={page} />;
+        if (page) return <Editor key={page.id} page={page} pages={pages} />;
         return justDeleted.has(id) ? null : <NotFound />;
       }}
     </AuthGate>
@@ -40,7 +41,7 @@ function useAutosize(value: string) {
   return ref;
 }
 
-function Editor({ page }: { page: Page }) {
+function Editor({ page, pages }: { page: Page; pages: Page[] }) {
   const router = useRouter();
   const [title, setTitle] = useState(page.title);
   const [content, setContent] = useState(page.content);
@@ -87,69 +88,72 @@ function Editor({ page }: { page: Page }) {
   }
 
   return (
-    <div className="app">
-      <header className="topbar topbar--tight">
-        <Button variant="ghost" size="sm" icon="arrow-left" href="/workspace">목록</Button>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span className="save-state" aria-live="polite">
-            <span className="dot" style={{ background: dirty ? "var(--ink-500)" : "var(--green-500)" }} />
-            {dirty ? "저장 중…" : "저장됨"}
-          </span>
-          <Button variant="secondary" size="sm" icon="trash-2" onClick={() => setConfirming(true)}>삭제</Button>
-        </div>
-      </header>
+    <div className="shell">
+      <Sidebar pages={pages} />
+      <div className="app">
+        <header className="topbar topbar--tight">
+          <Button variant="ghost" size="sm" icon="arrow-left" href="/workspace">목록</Button>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span className="save-state" aria-live="polite">
+              <span className="dot" style={{ background: dirty ? "var(--ink-500)" : "var(--green-500)" }} />
+              {dirty ? "저장 중…" : "저장됨"}
+            </span>
+            <Button variant="secondary" size="sm" icon="trash-2" onClick={() => setConfirming(true)}>삭제</Button>
+          </div>
+        </header>
 
-      <main className="container doc" style={{ maxWidth: 752 }}>
-        <CoverImage />
-        <span style={{ fontSize: 13, color: "var(--ink-500)" }}>{monthDay(page.updatedAt)} 수정</span>
-        <textarea
-          ref={titleRef}
-          className="doc__title"
-          rows={1}
-          value={title}
-          placeholder="제목을 입력하세요"
-          aria-label="제목"
-          onChange={(e) => {
-            setTitle(e.target.value.replace(/\n/g, ""));
-            setDirty(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              bodyRef.current?.focus();
-            }
-          }}
-        />
-        <Input
-          label="목표 글자 수"
-          inputMode="numeric"
-          placeholder="예: 1,000"
-          value={targetText}
-          hint={target.error ?? "비워 두면 글자 수만 보여요"}
-          style={{ maxWidth: 240 }}
-          onChange={(e) => {
-            setTargetText(e.target.value);
-            setDirty(true);
-          }}
-        />
-        <div className="rule" />
-        <textarea
-          ref={bodyRef}
-          className="doc__body"
-          value={content}
-          placeholder="내용을 입력하세요..."
-          aria-label="내용"
-          onChange={(e) => {
-            setContent(e.target.value);
-            setDirty(true);
-          }}
-        />
-        <CharCounter content={countedContent} target={targetLength} />
-      </main>
+        <main className="container doc" style={{ maxWidth: 752 }}>
+          <CoverImage />
+          <span style={{ fontSize: 13, color: "var(--ink-500)" }}>{monthDay(page.updatedAt)} 수정</span>
+          <textarea
+            ref={titleRef}
+            className="doc__title"
+            rows={1}
+            value={title}
+            placeholder="제목을 입력하세요"
+            aria-label="제목"
+            onChange={(e) => {
+              setTitle(e.target.value.replace(/\n/g, ""));
+              setDirty(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                bodyRef.current?.focus();
+              }
+            }}
+          />
+          <Input
+            label="목표 글자 수"
+            inputMode="numeric"
+            placeholder="예: 1,000"
+            value={targetText}
+            hint={target.error ?? "비워 두면 글자 수만 보여요"}
+            style={{ maxWidth: 240 }}
+            onChange={(e) => {
+              setTargetText(e.target.value);
+              setDirty(true);
+            }}
+          />
+          <div className="rule" />
+          <textarea
+            ref={bodyRef}
+            className="doc__body"
+            value={content}
+            placeholder="내용을 입력하세요..."
+            aria-label="내용"
+            onChange={(e) => {
+              setContent(e.target.value);
+              setDirty(true);
+            }}
+          />
+          <CharCounter content={countedContent} target={targetLength} />
+        </main>
 
-      {confirming && (
-        <DeleteDialog title={title || "제목 없음"} onCancel={() => setConfirming(false)} onConfirm={remove} />
-      )}
+        {confirming && (
+          <DeleteDialog title={title || "제목 없음"} onCancel={() => setConfirming(false)} onConfirm={remove} />
+        )}
+      </div>
     </div>
   );
 }
