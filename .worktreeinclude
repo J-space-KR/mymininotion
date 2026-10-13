@@ -1,0 +1,5 @@
+# 새 워크트리를 만들 때 함께 복사할 파일 목록 (.gitignore와 같은 문법)
+# git에 올리지 않는(.gitignore에 걸린) 파일 중 여기 적힌 것만 복사된다.
+
+# 환경변수 (Supabase 키 등) — .env.local, .env.development.local 등 모두
+.env*
