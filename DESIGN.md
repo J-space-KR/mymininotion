@@ -293,6 +293,20 @@
 <Input label="별명" value={nickname} maxLength={20} hint={hint} onChange={...} />
 ```
 
+### 5-2-1. Textarea (`components/ds/Textarea.tsx`)
+
+**용도:** 여러 줄 글을 받는 폼 필드. Input과 라벨·힌트 구조와 모양이 같습니다.
+
+- 구조: `.vt-field` > `.vt-field__label` / `.vt-input.vt-input--multiline`(textarea) / `.vt-field__hint`
+- 높이는 내용에 맞춤(기본 `rows=4`, 최소 72px), 위아래 패딩 12px, 좌우는 Input과 같은 14px라 글자 시작선이 맞음
+- 글자 15px, 행간 1.6, 캐럿 라임(`--accent`), 세로로만 크기 조절(`resize: vertical`)
+- 포커스·배경·모서리·힌트 규칙은 Input과 같음
+- 마이 페이지 자기소개(M-4)에서 사용. 저장 버튼은 화면의 primary가 이미 별명 "저장"이라 `secondary`를 오른쪽 아래에 둠
+
+```tsx
+<Textarea label="자기소개" value={intro} maxLength={300} placeholder="하는 일이나 관심사를 적어 보세요" hint={hint} onChange={...} />
+```
+
 ### 5-3. Badge (`components/ds/Badge.tsx`)
 
 | tone | 모양 | 의미 |
@@ -359,6 +373,7 @@
 | 다이얼로그 | `.scrim` + `.dialog` | 막 `rgba(0,0,0,.6)` + fade / 폭 420px, 패딩 28px, 모서리 16px + pop |
 | 위험 아이콘 | `.danger-icon` | 40px, 모서리 10px, 빨강 14% 배경 + 빨강 아이콘 |
 | 카드 | `.profile-card` | 패딩 24px, 모서리 12px, `ink-200`, 아래 `0 3px 0 #000` (버튼처럼 입체감) |
+| 자기소개 | `.profile-card__intro` | 프로필 카드 안 이름·이메일 아래. 14px, 행간 1.6, `--text-secondary`, 줄바꿈 그대로(`pre-wrap`), 긴 단어도 줄바꿈. 비어 있으면 보이지 않음 (me/page.tsx) |
 | 구분선 | `.rule` | 높이 1px, `border-default` |
 | 글자 수 바 | `.doc-count`, `.doc-count__line` | 글 상세 내용 아래, 화면 아래에 붙음(`position: sticky; bottom: 0`). 배경 `--bg-page`, 위쪽 윤곽 `inset 0 1px 0 var(--border-subtle)`, 13px `--text-secondary`, `tabular-nums`, 패딩 12px 0, 줄 간격 4px. `role="group"` + `aria-label="글자 수"`, `aria-live` 없음 (components/CharCounter.tsx) |
 | 커버 이미지 | `.cover`, `.cover__img`, `.cover__backdrop`, `.cover__error` | 글 상세 제목 위. 높이 320px(모바일 200px), 모서리 `--radius-card`, 배경 `--surface-card`. **사진은 자르지 않음**: `.cover__img`는 `object-fit: contain`으로 통째로, 남는 양옆은 같은 사진을 `.cover__backdrop`(`object-fit: cover`, `blur(28px) brightness(.55)`, `scale(1.2)`, `aria-hidden`)으로 흐리게 깔아 채움. 상태 변형 `--loading`(스켈레톤 + 시머) / `--loaded`(사진이 `--dur-base` 동안 서서히 보임) / `--error`(`border-subtle` 윤곽 + 안내 + secondary sm "다시 불러오기"). 고양이 API `https://cataas.com/cat/cute`에서 열 때마다 새로 받고 저장하지 않음 (components/CoverImage.tsx) |
@@ -413,7 +428,7 @@
 | 사진 불러오는 중 | 같은 크기의 스켈레톤 + 시머 (스피너 쓰지 않음, 자리 크기가 고정돼 레이아웃이 흔들리지 않음), `aria-busy` | components/CoverImage.tsx |
 | 사진 불러오기 실패 | 커버 자리에 안내 문구 + "다시 불러오기" 버튼 | components/CoverImage.tsx |
 | 글 없음 | `.center-msg` + 돌아갈 버튼 | pages/[id]/page.tsx |
-| 폼 결과 | 입력 힌트 문구를 바꿔서 알림 ("저장했어요") | me/page.tsx |
+| 폼 결과 | 입력 힌트 문구를 바꿔서 알림 ("저장했어요") — 별명·자기소개 공통 | me/page.tsx |
 | 사이드바 접힘 | 아이콘만 남고 글 목록은 숨김. 아이콘 링크엔 `aria-label`·`title`로 이름을 붙임. 새로고침·화면 이동 후에도 유지 | components/Sidebar.tsx |
 | 목표 글자 수 초과 | 그 줄만 `.doc-count__line--over` 빨간 글자(`--red-500`) + 문구 `· N자 초과` (색만으로 구분하지 않음). 목표와 같으면 초과 아님 | components/CharCounter.tsx |
 
@@ -452,6 +467,7 @@
 | 글 없음 | 글을 찾을 수 없어요. 이미 삭제됐을 수 있어요. |
 | 별명 힌트 | 처음엔 구글 이름을 써요 → 저장 중… → 저장했어요 / 실패하면 "저장하지 못했어요. 잠시 후 다시 눌러 주세요" (저장 중엔 "저장" 버튼 disabled) |
 | 이미지 오류 | 이미지를 읽지 못했어요. 다른 파일을 골라 주세요 |
+| 자기소개 | 라벨 "자기소개" · placeholder "하는 일이나 관심사를 적어 보세요" · 힌트 "300자까지 쓸 수 있어요" → 저장 중… → 저장했어요 (비워서 저장하면 "자기소개를 비웠어요") / 실패하면 "저장하지 못했어요. 잠시 후 다시 눌러 주세요" |
 | 로그아웃 안내 | 이 기기에서 로그인 상태를 끝내요 |
 | 글자 수 | 공백 포함 N자 · 공백 제외 N자 / 목표가 있으면 공백 포함 1,234 / 5,000자 · 234자 초과 |
 | 목표 글자 수 | 라벨 "목표 글자 수" · placeholder "예: 1,000" · 힌트 "비워 두면 글자 수만 보여요" → 오류 "1 이상의 숫자를 넣어 주세요" |

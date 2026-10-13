@@ -5,8 +5,9 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { THEME_KEY, type Theme } from "@/lib/theme";
 
-// Login uses real Supabase Auth (Google). The nickname lives in the Supabase `profile` table
-// (`name`, one row per user, created by a DB trigger on first login) and is cached in localStorage.
+// Login uses real Supabase Auth (Google). The nickname and introduction live in the Supabase `profile`
+// table (`name`, `introduction`; one row per user, created by a DB trigger on first login) and are
+// cached in localStorage.
 // Pages live in the Supabase `page` table (id, created_at, title, content, user_id). RLS lets a user
 // read/insert/update/delete only rows whose user_id is their own; queries also filter by user_id.
 // The table has no columns for the last-edit time or the target length, so those two stay in
@@ -16,6 +17,8 @@ export type User = {
   email: string;
   nickname: string;
   avatarUrl: string | null;
+  /** 자기소개 (M-4). 비어 있으면 "". */
+  introduction: string;
 };
 
 export type Page = {
@@ -71,7 +74,9 @@ function load(): Saved {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved> & { user?: User | null }) : {};
     // Older saves stored the mock user under `user`. Their mock `pages` are no longer read.
-    saved = { profile: parsed.profile ?? parsed.user ?? null, meta: parsed.meta ?? {} };
+    const profile = parsed.profile ?? parsed.user ?? null;
+    // Saves from before M-4 have no introduction.
+    saved = { profile: profile && { ...profile, introduction: profile.introduction ?? "" }, meta: parsed.meta ?? {} };
   } catch {
     saved = { profile: null, meta: {} };
   }
@@ -125,13 +130,14 @@ function applySession(session: Session | null) {
           email: sessionEmail,
           nickname: meta.full_name || meta.name || sessionEmail.split("@")[0],
           avatarUrl: meta.avatar_url || meta.picture || null,
+          introduction: "",
         };
   // Token refreshes fire again for the same user — only reload pages when the user changed.
   const userChanged = prevUserId !== authUser.id || !dbPages;
   if (userChanged) dbPages = null;
   save({ ...s, profile });
   if (userChanged) void loadPages(authUser.id);
-  void loadProfileName(authUser.id);
+  void loadProfile(authUser.id);
 }
 
 /** W-1: the signed-in user's own pages from Supabase, newest first. */
@@ -169,13 +175,21 @@ function enqueue(id: string, write: () => PromiseLike<{ error: unknown }>) {
   return next;
 }
 
-/** M-1: the nickname saved in Supabase wins over the local copy (it may have changed on another device). */
-async function loadProfileName(userId: string) {
-  const { data, error } = await supabase.from("profile").select("name").eq("user_id", userId).maybeSingle();
-  if (error || !data?.name || sessionUserId !== userId) return;
+/** M-1, M-4: the nickname and introduction saved in Supabase win over the local copy
+ *  (they may have changed on another device). */
+async function loadProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("profile")
+    .select("name, introduction")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data || sessionUserId !== userId) return;
   const s = load();
-  if (s.profile && s.profile.nickname !== data.name) {
-    save({ ...s, profile: { ...s.profile, nickname: data.name } });
+  if (!s.profile) return;
+  const nickname = data.name || s.profile.nickname;
+  const introduction = data.introduction ?? "";
+  if (s.profile.nickname !== nickname || s.profile.introduction !== introduction) {
+    save({ ...s, profile: { ...s.profile, nickname, introduction } });
   }
 }
 
@@ -247,6 +261,22 @@ export async function saveNickname(nickname: string) {
   if (!data?.length) throw new Error("profile row not found");
   const s = load();
   if (s.profile && sessionUserId === userId) save({ ...s, profile: { ...s.profile, nickname } });
+}
+
+/** M-4: saves the introduction to Supabase `profile.introduction` ("" is stored as null), then shows it.
+ *  Throws when it couldn't be saved. */
+export async function saveIntroduction(introduction: string) {
+  const userId = sessionUserId;
+  if (!userId) throw new Error("not signed in");
+  const { data, error } = await supabase
+    .from("profile")
+    .update({ introduction: introduction || null })
+    .eq("user_id", userId)
+    .select("introduction");
+  if (error) throw error;
+  if (!data?.length) throw new Error("profile row not found");
+  const s = load();
+  if (s.profile && sessionUserId === userId) save({ ...s, profile: { ...s.profile, introduction } });
 }
 
 /** M-2: the avatar has no column in `profile`, so it stays in localStorage. */

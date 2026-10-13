@@ -3,12 +3,13 @@ import { cleanup } from "@testing-library/react";
 
 // 테스트에서는 진짜 Supabase(구글 로그인) 대신 가짜를 쓴다.
 // 로그인 상태는 globalThis에 둬서 vi.resetModules() 뒤에도 남는다 (브라우저를 다시 연 것처럼).
-// profile 테이블도 가짜로 둔다: user_id → name. 진짜 DB처럼 처음 로그인할 때 한 줄이 생긴다.
+// profile 테이블도 가짜로 둔다: user_id → name, user_id → introduction. 진짜 DB처럼 처음 로그인할 때 한 줄이 생긴다.
 type Cb = (event: string, session: unknown) => void;
 const fakeAuth = globalThis as unknown as {
   __fakeSession: unknown;
   __fakeAuthCbs: Cb[];
   __fakeProfiles: Map<string, string>;
+  __fakeIntros: Map<string, string | null>;
   __fakeDbDown: boolean;
   __fakePages: PageRow[];
   __fakeDeleteDown: boolean;
@@ -16,6 +17,7 @@ const fakeAuth = globalThis as unknown as {
 fakeAuth.__fakeSession = null;
 fakeAuth.__fakeAuthCbs = [];
 fakeAuth.__fakeProfiles = new Map();
+fakeAuth.__fakeIntros = new Map();
 fakeAuth.__fakeDbDown = false;
 fakeAuth.__fakePages = [];
 fakeAuth.__fakeDeleteDown = false;
@@ -83,22 +85,25 @@ function fakePageTable() {
 function fakeFrom(table: string) {
   if (table === "page") return fakePageTable();
   const rows = fakeAuth.__fakeProfiles;
+  const intros = fakeAuth.__fakeIntros;
+  const rowOf = (userId: string) => ({ name: rows.get(userId), introduction: intros.get(userId) ?? null });
   return {
     select: () => ({
       eq: (_col: string, userId: string) => ({
         maybeSingle: async () =>
           fakeAuth.__fakeDbDown
             ? { data: null, error: dbError() }
-            : { data: rows.has(userId) ? { name: rows.get(userId) } : null, error: null },
+            : { data: rows.has(userId) ? rowOf(userId) : null, error: null },
       }),
     }),
-    update: ({ name }: { name: string }) => ({
+    update: (patch: { name?: string; introduction?: string | null }) => ({
       eq: (_col: string, userId: string) => ({
         select: async () => {
           if (fakeAuth.__fakeDbDown) return { data: null, error: dbError() };
           if (!rows.has(userId)) return { data: [], error: null };
-          rows.set(userId, name);
-          return { data: [{ name }], error: null };
+          if (patch.name !== undefined) rows.set(userId, patch.name);
+          if (patch.introduction !== undefined) intros.set(userId, patch.introduction);
+          return { data: [rowOf(userId)], error: null };
         },
       }),
     }),
@@ -144,6 +149,7 @@ afterEach(() => {
   fakeAuth.__fakeSession = null; // 가짜 로그인 상태 비우기
   fakeAuth.__fakeAuthCbs = [];
   fakeAuth.__fakeProfiles = new Map(); // 가짜 profile 테이블 비우기
+  fakeAuth.__fakeIntros = new Map();
   fakeAuth.__fakeDbDown = false;
   fakeAuth.__fakePages = []; // 가짜 page 테이블 비우기
   fakeAuth.__fakeDeleteDown = false;

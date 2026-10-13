@@ -85,3 +85,73 @@ describe("store — 별명은 Supabase profile에 저장 (M-1)", () => {
     expect(fakeDb.__fakeProfiles.get("user-1")).toBe("홍길동");
   });
 });
+
+describe("store — 자기소개는 Supabase profile에 저장 (M-4)", () => {
+  const intros = () => (globalThis as unknown as { __fakeIntros: Map<string, string | null> }).__fakeIntros;
+
+  it("처음에는 자기소개가 비어 있다", async () => {
+    const store = await freshStore();
+    const result = stateOf(store);
+    await act(() => store.signInWithGoogle());
+    expect(result.current?.user?.introduction).toBe("");
+  });
+
+  it("자기소개를 저장하면 profile.introduction이 바뀌고 화면에도 바로 보인다", async () => {
+    const store = await freshStore();
+    const result = stateOf(store);
+    await act(() => store.signInWithGoogle());
+    await act(() => store.saveIntroduction("안녕하세요.\n기획자예요."));
+    expect(intros().get("user-1")).toBe("안녕하세요.\n기획자예요.");
+    expect(result.current?.user?.introduction).toBe("안녕하세요.\n기획자예요.");
+  });
+
+  it("다시 열어도 자기소개가 남아 있다", async () => {
+    const store = await freshStore();
+    stateOf(store);
+    await act(() => store.signInWithGoogle());
+    await act(() => store.saveIntroduction("기획자예요"));
+    vi.resetModules();
+    const reloaded = await freshStore();
+    const result = stateOf(reloaded);
+    await waitFor(() => expect(result.current?.user?.introduction).toBe("기획자예요"));
+  });
+
+  it("다른 기기에서 바꾼 자기소개가 로그인할 때 반영된다", async () => {
+    const store = await freshStore();
+    const result = stateOf(store);
+    await act(() => store.signInWithGoogle());
+    await act(() => store.signOut());
+    intros().set("user-1", "다른 기기에서 쓴 소개");
+    await act(() => store.signInWithGoogle());
+    expect(result.current?.user?.introduction).toBe("다른 기기에서 쓴 소개");
+  });
+
+  it("비워서 저장하면 profile.introduction은 null, 화면은 빈 칸이다", async () => {
+    const store = await freshStore();
+    const result = stateOf(store);
+    await act(() => store.signInWithGoogle());
+    await act(() => store.saveIntroduction("기획자예요"));
+    await act(() => store.saveIntroduction(""));
+    expect(intros().get("user-1")).toBeNull();
+    expect(result.current?.user?.introduction).toBe("");
+  });
+
+  it("저장에 실패하면 오류를 내고 자기소개는 그대로다", async () => {
+    const store = await freshStore();
+    const result = stateOf(store);
+    await act(() => store.signInWithGoogle());
+    fakeDb.__fakeDbDown = true;
+    await expect(store.saveIntroduction("기획자예요")).rejects.toBeTruthy();
+    expect(result.current?.user?.introduction).toBe("");
+  });
+
+  it("별명을 바꿔도 자기소개는 지워지지 않는다", async () => {
+    const store = await freshStore();
+    const result = stateOf(store);
+    await act(() => store.signInWithGoogle());
+    await act(() => store.saveIntroduction("기획자예요"));
+    await act(() => store.saveNickname("길동이"));
+    expect(intros().get("user-1")).toBe("기획자예요");
+    expect(result.current?.user?.introduction).toBe("기획자예요");
+  });
+});
