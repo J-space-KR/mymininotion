@@ -17,7 +17,7 @@ export type User = {
   email: string;
   nickname: string;
   avatarUrl: string | null;
-  /** 자기소개 (M-4). 비어 있으면 "". */
+  /** Self-introduction (M-4). "" when empty. */
   introduction: string;
 };
 
@@ -388,7 +388,7 @@ export function setTheme(theme: Theme) {
   }
 }
 
-// ── UI preferences (사이드바 접기) ──
+// ── UI preferences (sidebar) ──
 // Kept apart from KEY: a per-browser preference, not user data (stays local after the Supabase move).
 
 const UI_KEY = "mini-notion:ui";

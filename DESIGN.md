@@ -270,7 +270,7 @@
 
 **사용 규칙**
 - 한 화면에 `primary`는 1개만.
-- 상단바 안 버튼은 `sm`.
+- 상단바 안 버튼은 `sm`. (예외: 화면 모드 전환 묶음 안 버튼은 조금 더 작게, §5-5-1)
 - 다이얼로그 버튼 순서: 왼쪽 `ghost`(취소) → 오른쪽 확정 버튼. 확정 버튼에 자동 포커스.
 
 ```tsx
@@ -299,7 +299,7 @@
 
 - 구조: `.vt-field` > `.vt-field__label` / `.vt-input.vt-input--multiline`(textarea) / `.vt-field__hint`
 - 높이는 내용에 맞춤(기본 `rows=4`, 최소 72px), 위아래 패딩 12px, 좌우는 Input과 같은 14px라 글자 시작선이 맞음
-- 글자 15px, 행간 1.6, 캐럿 라임(`--accent`), 세로로만 크기 조절(`resize: vertical`)
+- 글자 15px, 행간 1.6, 캐럿 라임(`--text-accent`), 세로로만 크기 조절(`resize: vertical`)
 - 포커스·배경·모서리·힌트 규칙은 Input과 같음
 - 마이 페이지 자기소개(M-4)에서 사용. 저장 버튼은 화면의 primary가 이미 별명 "저장"이라 `secondary`를 오른쪽 아래에 둠
 
@@ -351,6 +351,7 @@
 
 - 화면 모드 전환. **"다크 모드" / "PC통신 모드" 두 버튼을 글자로 나란히** 보여 주는 묶음(`.theme-switch`)입니다.
 - 지금 모드는 `Button` `white`, 다른 모드는 `ghost`. 둘 다 `sm`이지만 묶음 안에서는 높이 28px · 좌우 10px · 13px로 조금 작게.
+- **예외 규칙:** 버튼 크기를 바깥 CSS(`.theme-switch .vt-btn`)로 덮어쓰는 곳은 이 묶음뿐입니다. 다른 곳에서는 `size` prop(`sm`/`md`/`lg`)으로만 크기를 고릅니다. 비슷한 작은 버튼이 또 필요해지면 덮어쓰지 말고 Button에 새 크기를 추가할지 먼저 정합니다.
 - 묶음: 패딩 4px, 버튼 사이 4px, `inset 0 0 0 1px var(--border-default)` 윤곽.
 - 접근성: 묶음 `role="group"` + `aria-label="화면 모드"`, 각 버튼 `aria-pressed`.
 - 640px 이하에서는 " 모드"를 숨겨 "다크" / "PC통신"만 보임 (`.theme-switch__suffix`).
@@ -401,7 +402,7 @@
 | hover | 배경을 한 단계 밝게 (`ink-200` → `ink-300`) 또는 버튼 `brightness(1.06)` |
 | focus | 전역 `:focus-visible { outline: 2px solid var(--volt-300); outline-offset: 2px }` |
 | 입력창 포커스 | `:focus-within`에 `inset 0 0 0 1.5px var(--volt-300)` 라임 테두리 |
-| 캐럿 | 명령어·글 제목·본문에 `caret-color: var(--volt-300)` |
+| 캐럿 | 명령어·글 제목·본문·자기소개에 `caret-color: var(--text-accent)` |
 | active | 버튼이 3px 아래로 내려가며 그림자가 줄어듦 |
 | disabled | `opacity: .4`, 필터 없음 |
 | 선택 영역 | `::selection` 라임 배경 + 검정 글자 |

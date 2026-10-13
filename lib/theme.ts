@@ -1,7 +1,7 @@
 // Shared by the server layout (THEME_SCRIPT) and lib/store.ts (useTheme / setTheme),
 // so it must not be a "use client" module.
 
-/** dark: 기본 다크 · pc: 90년대 PC통신(이야기·새롬데이터맨) 파란 화면 */
+/** dark: the default · pc: the blue screen of 90s Korean PC-tongsin clients (이야기, 새롬데이터맨) */
 export type Theme = "dark" | "pc";
 
 export const THEME_KEY = "mini-notion:theme";
