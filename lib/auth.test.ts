@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 
 // 구글 로그인은 test/setup.ts의 가짜 Supabase로 대신한다.
 async function freshStore() {
@@ -16,12 +16,11 @@ describe("store — 구글 로그인 (L-1 ~ L-3, M-3)", () => {
     expect(stateOf(store).current?.user).toBeNull();
   });
 
-  it("로그인하면 구글 이름이 별명이 되고, 첫 로그인엔 예시 글이 생긴다", async () => {
+  it("로그인하면 구글 이름이 별명이 된다", async () => {
     const store = await freshStore();
     const result = stateOf(store);
     await act(() => store.signInWithGoogle());
     expect(result.current?.user).toMatchObject({ email: "gildong.hong@gmail.com", nickname: "홍길동" });
-    expect(result.current?.pages.length).toBeGreaterThan(0);
   });
 
   it("다시 열어도 로그인 상태가 유지된다 (L-2)", async () => {
@@ -29,7 +28,8 @@ describe("store — 구글 로그인 (L-1 ~ L-3, M-3)", () => {
     await store.signInWithGoogle();
     vi.resetModules();
     const reloaded = await freshStore();
-    expect(stateOf(reloaded).current?.user?.nickname).toBe("홍길동");
+    const result = stateOf(reloaded);
+    await waitFor(() => expect(result.current?.user?.nickname).toBe("홍길동"));
   });
 
   it("로그아웃하면 user가 없어지고, 다시 로그인하면 바꾼 별명이 남아 있다 (M-3)", async () => {

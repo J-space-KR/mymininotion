@@ -19,7 +19,7 @@
 
 - Next.js 16 (App Router) + React 19 + TypeScript 7(strict). 경로 별칭 `@/*` → 루트.
 - 모든 화면은 클라이언트 컴포넌트(`"use client"`). 로그인이 필요한 화면은 `components/AuthGate.tsx`로 감싼다.
-- **데이터는 `lib/store.ts`만 통해서 다룬다.** 지금은 localStorage 목업이고, 나중에 Supabase로 바꿀 예정(PRD §7.3). 화면 코드에서 localStorage를 직접 쓰지 않는다.
+- **데이터는 `lib/store.ts`만 통해서 다룬다.** 로그인·별명(`profile`)·글(`page`)은 Supabase, 아바타·글의 마지막 수정 시각·목표 글자 수는 localStorage에 있다(PRD §7.3). Supabase 테이블 구조는 사용자가 만든 것이라 바꾸지 않는다. 화면 코드에서 localStorage를 직접 쓰지 않는다.
 - 화면: `/` 로그인 · `/workspace` 업무 · `/pages/[id]` 글 상세 · `/me` 마이 페이지
 - 명령어: `npm run dev` / `npm run build`
 

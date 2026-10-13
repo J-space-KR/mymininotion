@@ -6,7 +6,10 @@ import { supabase } from "@/lib/supabase";
 
 // Login uses real Supabase Auth (Google). The nickname lives in the Supabase `profile` table
 // (`name`, one row per user, created by a DB trigger on first login) and is cached in localStorage.
-// Pages and the avatar still live in localStorage until they move to Supabase (PRD §7.3).
+// Pages live in the Supabase `page` table (id, created_at, title, content, user_id). RLS lets a user
+// read/insert/update/delete only rows whose user_id is their own; queries also filter by user_id.
+// The table has no columns for the last-edit time or the target length, so those two stay in
+// localStorage per page id (`meta`). The avatar also stays in localStorage.
 
 export type User = {
   email: string;
@@ -29,11 +32,17 @@ export type State = {
   pages: Page[];
 };
 
+/** Per-page data the `page` table has no column for. Kept on this browser only. */
+type PageMeta = { updatedAt?: number; targetLength?: number | null };
+
 /** What localStorage keeps. `profile` survives sign-out so nickname/avatar edits aren't lost. */
 type Saved = {
   profile: User | null;
-  pages: Page[];
+  meta: Record<string, PageMeta>;
 };
+
+/** One row of the Supabase `page` table, as selected. */
+type PageRow = { id: string; title: string; content: string; created_at: string };
 
 const KEY = "mini-notion:v1";
 const MIN = 60_000;
@@ -46,6 +55,10 @@ let state: State | null = null;
 let sessionEmail: string | null = null;
 /** auth.users id of the session — profile.user_id points to it. */
 let sessionUserId: string | null = null;
+/** The signed-in user's pages from Supabase. null until the first load finishes. */
+let dbPages: { id: string; title: string; content: string; createdAt: number }[] | null = null;
+/** Writes per page run in order, so an edit never reaches the DB before the page's insert. */
+const pending = new Map<string, Promise<unknown>>();
 /** False until Supabase has told us whether a session exists (avoids a wrong redirect on reload). */
 let authReady = false;
 let authStarted = false;
@@ -56,10 +69,10 @@ function load(): Saved {
   try {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved> & { user?: User | null }) : {};
-    // Older saves stored the mock user under `user`.
-    saved = { profile: parsed.profile ?? parsed.user ?? null, pages: parsed.pages ?? [] };
+    // Older saves stored the mock user under `user`. Their mock `pages` are no longer read.
+    saved = { profile: parsed.profile ?? parsed.user ?? null, meta: parsed.meta ?? {} };
   } catch {
-    saved = { profile: null, pages: [] };
+    saved = { profile: null, meta: {} };
   }
   return saved;
 }
@@ -68,34 +81,38 @@ function read(): State {
   if (state) return state;
   const s = load();
   const user = sessionEmail && s.profile?.email === sessionEmail ? s.profile : null;
-  state = { user, pages: s.pages };
+  const pages = (user && dbPages ? dbPages : []).map((p) => {
+    const m = s.meta[p.id] ?? {};
+    return { ...p, updatedAt: m.updatedAt ?? p.createdAt, targetLength: m.targetLength ?? null };
+  });
+  state = { user, pages };
   return state;
+}
+
+function notify() {
+  state = null;
+  listeners.forEach((l) => l());
 }
 
 function save(next: Saved) {
   saved = next;
-  state = null;
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
     // Storage full or blocked — keep the in-memory state so the session still works.
   }
-  listeners.forEach((l) => l());
-}
-
-function write(next: State) {
-  const s = load();
-  save({ profile: next.user ?? s.profile, pages: next.pages });
+  notify();
 }
 
 function applySession(session: Session | null) {
   authReady = true;
   const authUser = session?.user;
+  const prevUserId = sessionUserId;
   sessionEmail = authUser?.email ?? null;
   sessionUserId = authUser?.id ?? null;
   if (!authUser || !sessionEmail) {
-    state = null;
-    listeners.forEach((l) => l());
+    dbPages = null;
+    notify();
     return;
   }
   const s = load();
@@ -108,8 +125,47 @@ function applySession(session: Session | null) {
           nickname: meta.full_name || meta.name || sessionEmail.split("@")[0],
           avatarUrl: meta.avatar_url || meta.picture || null,
         };
-  save({ profile, pages: s.pages.length ? s.pages : seedPages() });
+  // Token refreshes fire again for the same user — only reload pages when the user changed.
+  const userChanged = prevUserId !== authUser.id || !dbPages;
+  if (userChanged) dbPages = null;
+  save({ ...s, profile });
+  if (userChanged) void loadPages(authUser.id);
   void loadProfileName(authUser.id);
+}
+
+/** W-1: the signed-in user's own pages from Supabase, newest first. */
+async function loadPages(userId: string) {
+  const { data, error } = await supabase
+    .from("page")
+    .select("id, title, content, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (sessionUserId !== userId) return;
+  if (error) {
+    console.error("글 목록을 불러오지 못했어요", error);
+    // Keep what is on screen; a first load that fails shows an empty list instead of hanging.
+    dbPages ??= [];
+    notify();
+    return;
+  }
+  dbPages = ((data ?? []) as PageRow[]).map((r) => ({
+    id: r.id,
+    title: r.title ?? "",
+    content: r.content ?? "",
+    createdAt: new Date(r.created_at).getTime(),
+  }));
+  notify();
+}
+
+/** Runs `write` after earlier writes to the same page; rejects with the Supabase error if it fails. */
+function enqueue(id: string, write: () => PromiseLike<{ error: unknown }>) {
+  const run = async () => {
+    const { error } = await write();
+    if (error) throw error;
+  };
+  const next = (pending.get(id) ?? Promise.resolve()).catch(() => {}).then(run);
+  pending.set(id, next);
+  return next;
 }
 
 /** M-1: the nickname saved in Supabase wins over the local copy (it may have changed on another device). */
@@ -148,38 +204,14 @@ function subscribe(listener: () => void) {
 }
 
 function snapshot(): State | null {
-  return authReady ? read() : null;
+  if (!authReady) return null;
+  if (sessionUserId && !dbPages) return null;
+  return read();
 }
 
-/** Returns null during SSR and until the login state is known, then the state. */
+/** Returns null during SSR and until the login state (and the user's pages) are known, then the state. */
 export function useStore(): State | null {
   return useSyncExternalStore(subscribe, snapshot, () => null);
-}
-
-function newId() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-function seedPages(): Page[] {
-  const now = Date.now();
-  const rows: [string, number, string][] = [
-    [
-      "주간 회의 정리",
-      0,
-      "1. 지난주 진행 상황 공유\n   — 구글 로그인, 로그인 유지 완료\n   — /page 새 글 만들기 1초 이내 확인\n\n2. 이번 주 할 일\n   — 마이 페이지 별명·이미지 변경\n   — 글 삭제 확인 창\n\n3. 메모\n   — 자동 저장 간격은 1초로 시작",
-    ],
-    ["이번 달 할 일", 2 * HOUR, "마이 페이지 이미지 업로드, 자동 저장 테스트, 배포"],
-    ["아이디어 메모", DAY, "/todo 명령어로 체크리스트 만들기 — 2단계 후보"],
-    ["", 3 * DAY, ""],
-    ["Supabase 설정 기록", 7 * DAY, "RLS 정책: 자기 글만 select / update / delete"],
-  ];
-  return rows.map(([title, ago, content]) => ({
-    id: newId(),
-    title,
-    content,
-    createdAt: now - ago,
-    updatedAt: now - ago,
-  }));
 }
 
 // ── Auth (L-1 ~ L-3, M-3) ──
@@ -196,8 +228,8 @@ export async function signInWithGoogle() {
 export async function signOut() {
   sessionEmail = null;
   sessionUserId = null;
-  state = null;
-  listeners.forEach((l) => l());
+  dbPages = null;
+  notify();
   await supabase.auth.signOut();
 }
 
@@ -212,15 +244,15 @@ export async function saveNickname(nickname: string) {
     .select("name");
   if (error) throw error;
   if (!data?.length) throw new Error("profile row not found");
-  const s = read();
-  if (s.user && sessionUserId === userId) write({ ...s, user: { ...s.user, nickname } });
+  const s = load();
+  if (s.profile && sessionUserId === userId) save({ ...s, profile: { ...s.profile, nickname } });
 }
 
 /** M-2: the avatar has no column in `profile`, so it stays in localStorage. */
 export function updateProfile(patch: Partial<Pick<User, "avatarUrl">>) {
-  const s = read();
-  if (!s.user) return;
-  write({ ...s, user: { ...s.user, ...patch } });
+  const s = load();
+  if (!read().user || !s.profile) return;
+  save({ ...s, profile: { ...s.profile, ...patch } });
 }
 
 // ── Pages (W-1 ~ W-5) ──
@@ -229,28 +261,56 @@ export function sortedPages(pages: Page[]) {
   return [...pages].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/** W-2: adds the page on screen right away (so the editor opens instantly) and inserts the row
+ *  in the background. Returns the new page id. */
 export function createPage(): string {
-  const s = read();
-  const now = Date.now();
-  const page: Page = { id: newId(), title: "", content: "", createdAt: now, updatedAt: now };
-  write({ ...s, pages: [page, ...s.pages] });
-  return page.id;
+  const userId = sessionUserId;
+  if (!userId || !dbPages) throw new Error("not signed in");
+  const id = crypto.randomUUID();
+  dbPages = [{ id, title: "", content: "", createdAt: Date.now() }, ...dbPages];
+  notify();
+  enqueue(id, () => supabase.from("page").insert({ id, user_id: userId, title: "", content: "" })).catch(
+    (error) => console.error("새 글을 저장하지 못했어요", error),
+  );
+  return id;
 }
 
+/** W-4: shows the edit right away, then saves title/content to Supabase. The edit time and the
+ *  target length go to localStorage (no columns for them). Rejects when the DB save failed. */
 export function savePage(
   id: string,
   patch: Pick<Page, "title" | "content"> & { targetLength?: number | null },
-) {
-  const s = read();
-  write({
-    ...s,
-    pages: s.pages.map((p) => (p.id === id ? { ...p, ...patch, updatedAt: Date.now() } : p)),
-  });
+): Promise<void> {
+  const userId = sessionUserId;
+  if (!userId || !dbPages?.some((p) => p.id === id)) return Promise.resolve();
+  const { title, content, targetLength } = patch;
+  dbPages = dbPages.map((p) => (p.id === id ? { ...p, title, content } : p));
+  const s = load();
+  const meta: PageMeta = { ...s.meta[id], updatedAt: Date.now() };
+  if (targetLength !== undefined) meta.targetLength = targetLength;
+  save({ ...s, meta: { ...s.meta, [id]: meta } });
+  const saving = enqueue(id, () =>
+    supabase.from("page").update({ title, content }).eq("id", id).eq("user_id", userId),
+  );
+  saving.catch((error) => console.error("글을 저장하지 못했어요", error));
+  return saving;
 }
 
-export function deletePage(id: string) {
-  const s = read();
-  write({ ...s, pages: s.pages.filter((p) => p.id !== id) });
+/** W-5: removes the page from the screen, then deletes the row. If that fails, the list is reloaded
+ *  from Supabase so the page shows up again. */
+export function deletePage(id: string): Promise<void> {
+  const userId = sessionUserId;
+  if (!userId || !dbPages) return Promise.resolve();
+  dbPages = dbPages.filter((p) => p.id !== id);
+  const s = load();
+  const { [id]: _removed, ...meta } = s.meta;
+  save({ ...s, meta });
+  const deleting = enqueue(id, () => supabase.from("page").delete().eq("id", id).eq("user_id", userId));
+  deleting.catch((error) => {
+    console.error("글을 삭제하지 못했어요", error);
+    if (sessionUserId === userId) void loadPages(userId);
+  });
+  return deleting;
 }
 
 // ── Formatting ──
