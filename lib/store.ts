@@ -4,14 +4,17 @@ import { useSyncExternalStore } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
-// Login uses real Supabase Auth (Google). The nickname lives in the Supabase `profile` table
-// (`name`, one row per user, created by a DB trigger on first login) and is cached in localStorage.
+// Login uses real Supabase Auth (Google). The nickname and introduction live in the Supabase `profile`
+// table (`name`, `introduction`; one row per user, created by a DB trigger on first login) and are
+// cached in localStorage.
 // Pages and the avatar still live in localStorage until they move to Supabase (PRD §7.3).
 
 export type User = {
   email: string;
   nickname: string;
   avatarUrl: string | null;
+  /** 자기소개 (M-4). 비어 있으면 "". */
+  introduction: string;
 };
 
 export type Page = {
@@ -57,7 +60,9 @@ function load(): Saved {
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? (JSON.parse(raw) as Partial<Saved> & { user?: User | null }) : {};
     // Older saves stored the mock user under `user`.
-    saved = { profile: parsed.profile ?? parsed.user ?? null, pages: parsed.pages ?? [] };
+    const profile = parsed.profile ?? parsed.user ?? null;
+    // Saves from before M-4 have no introduction.
+    saved = { profile: profile && { ...profile, introduction: profile.introduction ?? "" }, pages: parsed.pages ?? [] };
   } catch {
     saved = { profile: null, pages: [] };
   }
@@ -107,18 +112,27 @@ function applySession(session: Session | null) {
           email: sessionEmail,
           nickname: meta.full_name || meta.name || sessionEmail.split("@")[0],
           avatarUrl: meta.avatar_url || meta.picture || null,
+          introduction: "",
         };
   save({ profile, pages: s.pages.length ? s.pages : seedPages() });
-  void loadProfileName(authUser.id);
+  void loadProfile(authUser.id);
 }
 
-/** M-1: the nickname saved in Supabase wins over the local copy (it may have changed on another device). */
-async function loadProfileName(userId: string) {
-  const { data, error } = await supabase.from("profile").select("name").eq("user_id", userId).maybeSingle();
-  if (error || !data?.name || sessionUserId !== userId) return;
+/** M-1, M-4: the nickname and introduction saved in Supabase win over the local copy
+ *  (they may have changed on another device). */
+async function loadProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("profile")
+    .select("name, introduction")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data || sessionUserId !== userId) return;
   const s = load();
-  if (s.profile && s.profile.nickname !== data.name) {
-    save({ ...s, profile: { ...s.profile, nickname: data.name } });
+  if (!s.profile) return;
+  const nickname = data.name || s.profile.nickname;
+  const introduction = data.introduction ?? "";
+  if (s.profile.nickname !== nickname || s.profile.introduction !== introduction) {
+    save({ ...s, profile: { ...s.profile, nickname, introduction } });
   }
 }
 
@@ -214,6 +228,22 @@ export async function saveNickname(nickname: string) {
   if (!data?.length) throw new Error("profile row not found");
   const s = read();
   if (s.user && sessionUserId === userId) write({ ...s, user: { ...s.user, nickname } });
+}
+
+/** M-4: saves the introduction to Supabase `profile.introduction` ("" is stored as null), then shows it.
+ *  Throws when it couldn't be saved. */
+export async function saveIntroduction(introduction: string) {
+  const userId = sessionUserId;
+  if (!userId) throw new Error("not signed in");
+  const { data, error } = await supabase
+    .from("profile")
+    .update({ introduction: introduction || null })
+    .eq("user_id", userId)
+    .select("introduction");
+  if (error) throw error;
+  if (!data?.length) throw new Error("profile row not found");
+  const s = read();
+  if (s.user && sessionUserId === userId) write({ ...s, user: { ...s.user, introduction } });
 }
 
 /** M-2: the avatar has no column in `profile`, so it stays in localStorage. */

@@ -7,9 +7,16 @@ import { AuthGate } from "@/components/AuthGate";
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/ds/Button";
 import { Input } from "@/components/ds/Input";
-import { saveNickname as saveNicknameToStore, signOut, updateProfile, type User } from "@/lib/store";
+import { Textarea } from "@/components/ds/Textarea";
+import {
+  saveIntroduction as saveIntroductionToStore,
+  saveNickname as saveNicknameToStore,
+  signOut,
+  updateProfile,
+  type User,
+} from "@/lib/store";
 
-// 1f 마이 페이지 · M-1 별명, M-2 이미지, M-3 로그아웃
+// 1f 마이 페이지 · M-1 별명, M-2 이미지, M-3 로그아웃, M-4 자기소개
 export default function MyPage() {
   return <AuthGate>{({ user }) => <Profile user={user} />}</AuthGate>;
 }
@@ -34,6 +41,9 @@ function toAvatarDataUrl(file: File): Promise<string> {
   });
 }
 
+const INTRO_MAX = 300;
+const INTRO_HINT = `${INTRO_MAX}자까지 쓸 수 있어요`;
+
 function Profile({ user }: { user: User }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -42,6 +52,18 @@ function Profile({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const trimmed = nickname.trim();
   const canSave = !saving && trimmed.length > 0 && trimmed !== user.nickname;
+
+  // M-4: 자기소개. 고치지 않은 채로 다른 기기에서 바뀐 값이 늦게 도착하면 입력창도 따라 바꾼다.
+  const [intro, setIntro] = useState(user.introduction);
+  const [introBase, setIntroBase] = useState(user.introduction);
+  const [introHint, setIntroHint] = useState(INTRO_HINT);
+  const [savingIntro, setSavingIntro] = useState(false);
+  if (user.introduction !== introBase) {
+    setIntroBase(user.introduction);
+    if (intro === introBase) setIntro(user.introduction);
+  }
+  const introTrimmed = intro.trim();
+  const canSaveIntro = !savingIntro && introTrimmed !== user.introduction;
 
   // M-1: 별명은 Supabase profile에 저장한다. 실패하면 입력은 그대로 두고 다시 누르게 한다.
   async function saveNickname(e?: React.FormEvent) {
@@ -57,6 +79,22 @@ function Profile({ user }: { user: User }) {
       setHint("저장하지 못했어요. 잠시 후 다시 눌러 주세요");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveIntroduction(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSaveIntro) return;
+    setSavingIntro(true);
+    setIntroHint("저장 중…");
+    try {
+      await saveIntroductionToStore(introTrimmed);
+      setIntro(introTrimmed);
+      setIntroHint(introTrimmed ? "저장했어요" : "자기소개를 비웠어요");
+    } catch {
+      setIntroHint("저장하지 못했어요. 잠시 후 다시 눌러 주세요");
+    } finally {
+      setSavingIntro(false);
     }
   }
 
@@ -94,6 +132,7 @@ function Profile({ user }: { user: User }) {
               <span style={{ fontSize: 18, fontWeight: 700 }}>{user.nickname}</span>
               <span className="muted">{user.email}</span>
             </div>
+            {user.introduction && <p className="profile-card__intro">{user.introduction}</p>}
             <div style={{ display: "flex", gap: 8 }}>
               <Button variant="secondary" size="sm" icon="image" onClick={() => fileRef.current?.click()}>이미지 변경</Button>
               {user.avatarUrl && (
@@ -120,6 +159,22 @@ function Profile({ user }: { user: User }) {
           <div style={{ paddingBottom: 24 }}>
             <Button type="submit" variant="primary" disabled={!canSave}>저장</Button>
           </div>
+        </form>
+
+        <form onSubmit={saveIntroduction} style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+          <Textarea
+            label="자기소개"
+            value={intro}
+            maxLength={INTRO_MAX}
+            placeholder="하는 일이나 관심사를 적어 보세요"
+            onChange={(e) => {
+              setIntro(e.target.value);
+              setIntroHint(INTRO_HINT);
+            }}
+            hint={introHint}
+            style={{ width: "100%" }}
+          />
+          <Button type="submit" variant="secondary" disabled={!canSaveIntro}>저장</Button>
         </form>
 
         <div style={{ height: 1, background: "var(--border-subtle)" }} />
