@@ -10,17 +10,78 @@ const fakeAuth = globalThis as unknown as {
   __fakeAuthCbs: Cb[];
   __fakeProfiles: Map<string, string>;
   __fakeDbDown: boolean;
+  __fakePages: PageRow[];
+  __fakeDeleteDown: boolean;
 };
 fakeAuth.__fakeSession = null;
 fakeAuth.__fakeAuthCbs = [];
 fakeAuth.__fakeProfiles = new Map();
 fakeAuth.__fakeDbDown = false;
+fakeAuth.__fakePages = [];
+fakeAuth.__fakeDeleteDown = false;
 
 const FAKE_USER_ID = "user-1";
 const dbError = () => ({ message: "network down" });
 
-/** Supports only the chains lib/store.ts uses on `profile`. */
-function fakeFrom() {
+type PageRow = { id: string; created_at: string; title: string; content: string; user_id: string };
+
+/** Fake `page` table. Like the real RLS policies, every query only sees the signed-in user's rows. */
+function fakePageTable() {
+  const uid = () => (fakeAuth.__fakeSession as { user: { id: string } } | null)?.user.id;
+  const filters: [keyof PageRow, string][] = [];
+  let action: () => { data: unknown; error: unknown } = () => ({ data: null, error: null });
+  const visible = () =>
+    fakeAuth.__fakePages.filter((r) => r.user_id === uid() && filters.every(([c, v]) => r[c] === v));
+  const query = {
+    select: () => {
+      action = () => ({
+        data: visible()
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .map(({ id, title, content, created_at }) => ({ id, title, content, created_at })),
+        error: null,
+      });
+      return query;
+    },
+    insert: (row: Omit<PageRow, "created_at">) => {
+      action = () => {
+        if (row.user_id !== uid()) return { data: null, error: { message: "violates row-level security" } };
+        fakeAuth.__fakePages.push({ ...row, created_at: new Date().toISOString() });
+        return { data: null, error: null };
+      };
+      return query;
+    },
+    update: (patch: Partial<PageRow>) => {
+      action = () => {
+        visible().forEach((r) => Object.assign(r, patch));
+        return { data: null, error: null };
+      };
+      return query;
+    },
+    delete: () => {
+      action = () => {
+        if (fakeAuth.__fakeDeleteDown) return { data: null, error: dbError() };
+        const gone = new Set(visible());
+        fakeAuth.__fakePages = fakeAuth.__fakePages.filter((r) => !gone.has(r));
+        return { data: null, error: null };
+      };
+      return query;
+    },
+    eq: (col: keyof PageRow, value: string) => {
+      filters.push([col, value]);
+      return query;
+    },
+    order: () => query,
+    then: <T>(resolve: (r: { data: unknown; error: unknown }) => T, reject?: (e: unknown) => T) =>
+      Promise.resolve()
+        .then(() => (fakeAuth.__fakeDbDown ? { data: null, error: dbError() } : action()))
+        .then(resolve, reject),
+  };
+  return query;
+}
+
+/** Supports only the chains lib/store.ts uses on `profile` and `page`. */
+function fakeFrom(table: string) {
+  if (table === "page") return fakePageTable();
   const rows = fakeAuth.__fakeProfiles;
   return {
     select: () => ({
@@ -84,6 +145,8 @@ afterEach(() => {
   fakeAuth.__fakeAuthCbs = [];
   fakeAuth.__fakeProfiles = new Map(); // 가짜 profile 테이블 비우기
   fakeAuth.__fakeDbDown = false;
+  fakeAuth.__fakePages = []; // 가짜 page 테이블 비우기
+  fakeAuth.__fakeDeleteDown = false;
   vi.resetModules(); // 다음 `await import("@/lib/store")`가 메모리 캐시 없이 새로 시작
   vi.restoreAllMocks(); // spy가 있었다면 원래대로
 });

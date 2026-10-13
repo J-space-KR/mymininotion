@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 
 // 테스트 환경에는 Next.js 라우터가 없어서 next/navigation만 대체한다.
 // store·화면·컴포넌트는 모두 진짜를 쓴다.
@@ -19,7 +19,9 @@ vi.mock("next/navigation", () => ({
 /** 로그인 → 빈 글 생성 → (선택) 글 내용 미리 저장 → 글 상세 화면 렌더 */
 async function openNewPage(prepare?: (store: typeof import("@/lib/store"), id: string) => void) {
   const store = await import("@/lib/store");
-  store.signInWithGoogle();
+  const { result } = renderHook(() => store.useStore());
+  await act(() => store.signInWithGoogle());
+  await waitFor(() => expect(result.current?.pages).toBeDefined()); // 글 목록을 DB에서 다 불러올 때까지
   const id = store.createPage();
   prepare?.(store, id);
   nav.id = id;
