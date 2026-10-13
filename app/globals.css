@@ -93,6 +93,22 @@ a{color:inherit;text-decoration:none}
 .theme-switch{display:flex;gap:4px;padding:4px;border-radius:var(--radius-button);box-shadow:inset 0 0 0 1px var(--border-default)}
 .theme-switch .vt-btn{height:28px;padding:0 10px;font-size:13px}
 
+/* ── Sidebar (업무 · 글 상세, components/Sidebar.tsx) ── */
+.shell{display:flex;min-height:100vh}
+.shell>.app{flex:1;min-width:0}
+.sidebar{position:sticky;top:0;flex:none;width:240px;height:100vh;display:flex;flex-direction:column;gap:16px;padding:12px;background:var(--bg-page);box-shadow:inset -1px 0 0 var(--border-subtle);overflow-x:hidden;overflow-y:auto;transition:width var(--dur-base) var(--ease-out)}
+.sidebar--collapsed{width:56px}
+.sidebar__toggle{width:32px;padding:0}
+.sidebar__nav{display:flex;flex-direction:column;gap:4px}
+.sidebar__label{padding:0 8px 4px;font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.04em}
+.sidebar__item{display:flex;align-items:center;gap:12px;height:32px;padding:0 8px;border-radius:var(--radius-button);font-size:14px;color:var(--text-secondary);white-space:nowrap;transition:background var(--dur-base),color var(--dur-base)}
+.sidebar__item:hover{background:var(--surface-card);color:var(--text-primary)}
+.sidebar__item[aria-current="page"]{background:var(--surface-card);color:var(--text-primary);font-weight:600}
+.sidebar__text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.sidebar__text--empty{color:var(--text-tertiary)}
+.sidebar__empty{margin:0;padding:0 8px;font-size:13px;line-height:1.6;color:var(--text-secondary);white-space:normal}
+@media (prefers-reduced-motion:reduce){.sidebar{transition:none}}
+
 /* ── 1a Login ── */
 .login{min-height:100vh;background:var(--bg-stage);display:grid;grid-template-rows:auto 1fr auto}
 .login__bar{display:flex;align-items:center;justify-content:space-between;padding:20px 28px}
@@ -175,4 +191,8 @@ a{color:inherit;text-decoration:none}
   .doc__title{font-size:32px}
   .cover{height:200px}
   .profile-card{flex-direction:column;align-items:flex-start}
+  /* 좁은 화면: 접힌 띠만 자리를 차지하고, 펼치면 본문 위에 떠요 */
+  .shell{padding-left:56px}
+  .sidebar{position:fixed;left:0;z-index:40}
+  .sidebar:not(.sidebar--collapsed){box-shadow:var(--shadow-pop),inset -1px 0 0 var(--border-subtle)}
 }

@@ -358,6 +358,53 @@ export function setTheme(theme: Theme) {
   }
 }
 
+// ── UI preferences (사이드바 접기) ──
+// Kept apart from KEY: a per-browser preference, not user data (stays local after the Supabase move).
+
+const UI_KEY = "mini-notion:ui";
+let sidebarCollapsed: boolean | null = null;
+const uiListeners = new Set<() => void>();
+
+function readSidebarCollapsed(): boolean {
+  if (sidebarCollapsed !== null) return sidebarCollapsed;
+  try {
+    sidebarCollapsed = JSON.parse(localStorage.getItem(UI_KEY) ?? "{}").sidebarCollapsed === true;
+  } catch {
+    sidebarCollapsed = false;
+  }
+  return sidebarCollapsed;
+}
+
+function subscribeUi(listener: () => void) {
+  uiListeners.add(listener);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === UI_KEY) {
+      sidebarCollapsed = null;
+      listener();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    uiListeners.delete(listener);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+/** True when the sidebar is folded to the icon rail. Survives reloads. */
+export function useSidebarCollapsed(): boolean {
+  return useSyncExternalStore(subscribeUi, readSidebarCollapsed, () => false);
+}
+
+export function setSidebarCollapsed(collapsed: boolean) {
+  sidebarCollapsed = collapsed;
+  try {
+    localStorage.setItem(UI_KEY, JSON.stringify({ sidebarCollapsed: collapsed }));
+  } catch {
+    // Storage blocked — the choice still holds until the tab closes.
+  }
+  uiListeners.forEach((l) => l());
+}
+
 // ── Formatting ──
 
 export function relativeTime(ts: number, now = Date.now()) {

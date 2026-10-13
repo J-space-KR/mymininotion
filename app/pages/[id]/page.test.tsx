@@ -6,6 +6,7 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-li
 const nav = vi.hoisted(() => ({ id: "" }));
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: nav.id }),
+  usePathname: () => `/pages/${nav.id}`,
   useRouter: () => ({
     replace: () => {},
     push: () => {},
