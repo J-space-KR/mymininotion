@@ -3,13 +3,17 @@ import { cleanup } from "@testing-library/react";
 
 // 테스트에서는 진짜 Supabase(구글 로그인) 대신 가짜를 쓴다.
 // 로그인 상태는 globalThis에 둬서 vi.resetModules() 뒤에도 남는다 (브라우저를 다시 연 것처럼).
-// profile 테이블도 가짜로 둔다: user_id → name, user_id → introduction. 진짜 DB처럼 처음 로그인할 때 한 줄이 생긴다.
+// profile 테이블도 가짜로 둔다: user_id → name, introduction, "image-path". 진짜 DB처럼 처음 로그인할 때 한 줄이 생긴다.
+// Storage는 profile-image 버킷만 가짜로 둔다: 파일 이름 → 올린 Blob.
 type Cb = (event: string, session: unknown) => void;
 const fakeAuth = globalThis as unknown as {
   __fakeSession: unknown;
   __fakeAuthCbs: Cb[];
   __fakeProfiles: Map<string, string>;
   __fakeIntros: Map<string, string | null>;
+  __fakeImagePaths: Map<string, string | null>;
+  __fakeFiles: Map<string, Blob>;
+  __fakeStorageDown: boolean;
   __fakeDbDown: boolean;
   __fakePages: PageRow[];
   __fakeDeleteDown: boolean;
@@ -18,6 +22,9 @@ fakeAuth.__fakeSession = null;
 fakeAuth.__fakeAuthCbs = [];
 fakeAuth.__fakeProfiles = new Map();
 fakeAuth.__fakeIntros = new Map();
+fakeAuth.__fakeImagePaths = new Map();
+fakeAuth.__fakeFiles = new Map();
+fakeAuth.__fakeStorageDown = false;
 fakeAuth.__fakeDbDown = false;
 fakeAuth.__fakePages = [];
 fakeAuth.__fakeDeleteDown = false;
@@ -86,7 +93,13 @@ function fakeFrom(table: string) {
   if (table === "page") return fakePageTable();
   const rows = fakeAuth.__fakeProfiles;
   const intros = fakeAuth.__fakeIntros;
-  const rowOf = (userId: string) => ({ name: rows.get(userId), introduction: intros.get(userId) ?? null });
+  const images = fakeAuth.__fakeImagePaths;
+  // store는 하이픈 컬럼을 `imagePath:"image-path"`로 이름을 바꿔 읽는다.
+  const rowOf = (userId: string) => ({
+    name: rows.get(userId),
+    introduction: intros.get(userId) ?? null,
+    imagePath: images.get(userId) ?? null,
+  });
   return {
     select: () => ({
       eq: (_col: string, userId: string) => ({
@@ -96,13 +109,14 @@ function fakeFrom(table: string) {
             : { data: rows.has(userId) ? rowOf(userId) : null, error: null },
       }),
     }),
-    update: (patch: { name?: string; introduction?: string | null }) => ({
+    update: (patch: { name?: string; introduction?: string | null; "image-path"?: string | null }) => ({
       eq: (_col: string, userId: string) => ({
         select: async () => {
           if (fakeAuth.__fakeDbDown) return { data: null, error: dbError() };
           if (!rows.has(userId)) return { data: [], error: null };
           if (patch.name !== undefined) rows.set(userId, patch.name);
           if (patch.introduction !== undefined) intros.set(userId, patch.introduction);
+          if (patch["image-path"] !== undefined) images.set(userId, patch["image-path"]);
           return { data: [rowOf(userId)], error: null };
         },
       }),
@@ -115,6 +129,20 @@ vi.mock("@/lib/supabase", () => {
   return {
     supabase: {
       from: fakeFrom,
+      storage: {
+        from: (bucket: string) => ({
+          upload: async (name: string, file: Blob) => {
+            if (bucket !== "profile-image" || fakeAuth.__fakeStorageDown) return { data: null, error: dbError() };
+            if (fakeAuth.__fakeFiles.has(name)) return { data: null, error: { message: "already exists" } };
+            fakeAuth.__fakeFiles.set(name, file);
+            return { data: { path: name }, error: null };
+          },
+          remove: async (names: string[]) => {
+            names.forEach((n) => fakeAuth.__fakeFiles.delete(n));
+            return { data: [], error: null };
+          },
+        }),
+      },
       auth: {
         // 진짜는 비동기로 알려 주지만, 테스트가 단순하도록 바로 알려 준다.
         onAuthStateChange: (cb: Cb) => {
@@ -150,6 +178,9 @@ afterEach(() => {
   fakeAuth.__fakeAuthCbs = [];
   fakeAuth.__fakeProfiles = new Map(); // 가짜 profile 테이블 비우기
   fakeAuth.__fakeIntros = new Map();
+  fakeAuth.__fakeImagePaths = new Map();
+  fakeAuth.__fakeFiles = new Map();
+  fakeAuth.__fakeStorageDown = false;
   fakeAuth.__fakeDbDown = false;
   fakeAuth.__fakePages = []; // 가짜 page 테이블 비우기
   fakeAuth.__fakeDeleteDown = false;

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 // store는 모듈 안에 메모리 캐시가 있어서 테스트마다 새로 불러온다.
@@ -7,6 +7,9 @@ type FakeDb = {
   __fakePages: { id: string; created_at: string; title: string; content: string; user_id: string }[];
   __fakeDbDown: boolean;
   __fakeDeleteDown: boolean;
+  __fakeImagePaths: Map<string, string | null>;
+  __fakeFiles: Map<string, Blob>;
+  __fakeStorageDown: boolean;
 };
 const fakeDb = globalThis as unknown as FakeDb;
 
@@ -162,5 +165,59 @@ describe("store — 목표 글자 수(targetLength)", () => {
     act(() => void store.savePage(a, { title: "", content: "", targetLength: 5000 }));
     act(() => void store.savePage(a, { title: "새 제목", content: "새 내용" }));
     expect(result.current?.pages.find((p) => p.id === a)?.targetLength).toBe(5000);
+  });
+});
+
+describe("store — 프로필 이미지는 Supabase Storage에 저장 (M-2)", () => {
+  const BASE = "https://example.supabase.co/storage/v1/object/public/profile-image";
+  const UUID_JPG = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.jpg$/;
+  const jpeg = () => new Blob(["x"], { type: "image/jpeg" });
+
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL", `${BASE}/`);
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("올리면 버킷에 uuid v4 이름으로 저장되고, 버킷 뒤 경로만 profile.image-path에 남는다", async () => {
+    const { store, result } = await signedIn();
+    await act(() => store.uploadProfileImage(jpeg()));
+    const path = fakeDb.__fakeImagePaths.get("user-1")!;
+    expect(path).toMatch(UUID_JPG);
+    expect([...fakeDb.__fakeFiles.keys()]).toEqual([path]);
+    expect(result.current?.user?.avatarUrl).toBe(`${BASE}/${path}`);
+  });
+
+  it("다시 올리면 예전 파일은 지워지고, 새로고침해도 새 이미지가 보인다", async () => {
+    const { store } = await signedIn();
+    await act(() => store.uploadProfileImage(jpeg()));
+    const first = fakeDb.__fakeImagePaths.get("user-1")!;
+    await act(() => store.uploadProfileImage(jpeg()));
+    const second = fakeDb.__fakeImagePaths.get("user-1")!;
+    expect(second).not.toBe(first);
+    await waitFor(() => expect([...fakeDb.__fakeFiles.keys()]).toEqual([second]));
+
+    vi.resetModules();
+    localStorage.clear(); // 다른 기기처럼 로컬 사본 없이 열어도 DB 값으로 보인다
+    const { result } = await signedIn();
+    await waitFor(() => expect(result.current?.user?.avatarUrl).toBe(`${BASE}/${second}`));
+  });
+
+  it("올리지 못하면 오류를 내고 DB는 그대로 둔다", async () => {
+    const { store, result } = await signedIn();
+    fakeDb.__fakeStorageDown = true;
+    await expect(store.uploadProfileImage(jpeg())).rejects.toBeTruthy();
+    expect(fakeDb.__fakeImagePaths.get("user-1") ?? null).toBeNull();
+    expect(result.current?.user?.avatarUrl).toBeNull();
+  });
+
+  it("기본으로 되돌리면 image-path를 비우고 파일도 지운다", async () => {
+    const { store, result } = await signedIn();
+    await act(() => store.uploadProfileImage(jpeg()));
+    await act(() => store.resetProfileImage());
+    expect(fakeDb.__fakeImagePaths.get("user-1")).toBeNull();
+    await waitFor(() => expect(fakeDb.__fakeFiles.size).toBe(0));
+    expect(result.current?.user?.avatarUrl).toBeNull();
   });
 });

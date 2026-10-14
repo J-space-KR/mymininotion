@@ -11,7 +11,10 @@ import { THEME_KEY, type Theme } from "@/lib/theme";
 // Pages live in the Supabase `page` table (id, created_at, title, content, user_id). RLS lets a user
 // read/insert/update/delete only rows whose user_id is their own; queries also filter by user_id.
 // The table has no columns for the last-edit time or the target length, so those two stay in
-// localStorage per page id (`meta`). The avatar also stays in localStorage.
+// localStorage per page id (`meta`).
+// M-2: an uploaded avatar is stored in the Storage bucket `profile-image` as `<uuid v4>.jpg`. Only the
+// part after the bucket (`<uuid>.jpg`) goes into `profile."image-path"`; the part before it comes from
+// NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL. Without an upload, the Google photo (cached locally) is used.
 
 export type User = {
   email: string;
@@ -44,6 +47,14 @@ type Saved = {
   profile: User | null;
   meta: Record<string, PageMeta>;
 };
+
+/** Public URL of the `profile-image` bucket, e.g. https://<ref>.supabase.co/storage/v1/object/public/profile-image */
+const PROFILE_IMAGE_BASE_URL = (process.env.NEXT_PUBLIC_PROFILE_IMAGE_BASE_URL ?? "").replace(/\/+$/, "");
+const PROFILE_IMAGE_BUCKET = "profile-image";
+
+function profileImageUrl(imagePath: string) {
+  return `${PROFILE_IMAGE_BASE_URL}/${imagePath}`;
+}
 
 /** One row of the Supabase `page` table, as selected. */
 type PageRow = { id: string; title: string; content: string; created_at: string };
@@ -175,12 +186,12 @@ function enqueue(id: string, write: () => PromiseLike<{ error: unknown }>) {
   return next;
 }
 
-/** M-1, M-4: the nickname and introduction saved in Supabase win over the local copy
- *  (they may have changed on another device). */
+/** M-1, M-2, M-4: the nickname, introduction and uploaded image saved in Supabase win over the local copy
+ *  (they may have changed on another device). With no uploaded image the local avatar stays. */
 async function loadProfile(userId: string) {
   const { data, error } = await supabase
     .from("profile")
-    .select("name, introduction")
+    .select('name, introduction, imagePath:"image-path"')
     .eq("user_id", userId)
     .maybeSingle();
   if (error || !data || sessionUserId !== userId) return;
@@ -188,9 +199,42 @@ async function loadProfile(userId: string) {
   if (!s.profile) return;
   const nickname = data.name || s.profile.nickname;
   const introduction = data.introduction ?? "";
-  if (s.profile.nickname !== nickname || s.profile.introduction !== introduction) {
-    save({ ...s, profile: { ...s.profile, nickname, introduction } });
+  const imagePath: string | null = data.imagePath;
+  const avatarUrl = imagePath ? profileImageUrl(imagePath) : s.profile.avatarUrl;
+  if (
+    s.profile.nickname !== nickname ||
+    s.profile.introduction !== introduction ||
+    s.profile.avatarUrl !== avatarUrl
+  ) {
+    save({ ...s, profile: { ...s.profile, nickname, introduction, avatarUrl } });
   }
+}
+
+/** The uploaded image's path (after the bucket) in `profile."image-path"`, or null. */
+async function currentImagePath(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.from("profile").select('imagePath:"image-path"').eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  return data?.imagePath ?? null;
+}
+
+/** Removes an image that is no longer used. Failing only leaves an unused file behind. */
+function removeImage(imagePath: string | null) {
+  if (!imagePath) return;
+  void supabase.storage
+    .from(PROFILE_IMAGE_BUCKET)
+    .remove([imagePath])
+    .then(({ error }) => error && console.error("예전 프로필 이미지를 지우지 못했어요", error));
+}
+
+/** Points `profile."image-path"` at `imagePath` (null = no uploaded image). Throws when it couldn't be saved. */
+async function saveImagePath(userId: string, imagePath: string | null) {
+  const { data, error } = await supabase
+    .from("profile")
+    .update({ "image-path": imagePath })
+    .eq("user_id", userId)
+    .select('imagePath:"image-path"');
+  if (error) throw error;
+  if (!data?.length) throw new Error("profile row not found");
 }
 
 /** Starts listening to Supabase Auth once. Fires INITIAL_SESSION after restoring the session
@@ -279,11 +323,40 @@ export async function saveIntroduction(introduction: string) {
   if (s.profile && sessionUserId === userId) save({ ...s, profile: { ...s.profile, introduction } });
 }
 
-/** M-2: the avatar has no column in `profile`, so it stays in localStorage. */
-export function updateProfile(patch: Partial<Pick<User, "avatarUrl">>) {
+/** M-2: uploads the image to Storage as `<uuid v4>.jpg`, saves that path in `profile."image-path"`,
+ *  then shows it. The previous upload is removed. Throws when it couldn't be saved. */
+export async function uploadProfileImage(image: Blob) {
+  const userId = sessionUserId;
+  if (!userId) throw new Error("not signed in");
+  const previous = await currentImagePath(userId);
+  const imagePath = `${crypto.randomUUID()}.jpg`;
+  const { error } = await supabase.storage
+    .from(PROFILE_IMAGE_BUCKET)
+    .upload(imagePath, image, { contentType: "image/jpeg" });
+  if (error) throw error;
+  try {
+    await saveImagePath(userId, imagePath);
+  } catch (e) {
+    removeImage(imagePath);
+    throw e;
+  }
+  removeImage(previous);
   const s = load();
-  if (!read().user || !s.profile) return;
-  save({ ...s, profile: { ...s.profile, ...patch } });
+  if (s.profile && sessionUserId === userId) {
+    save({ ...s, profile: { ...s.profile, avatarUrl: profileImageUrl(imagePath) } });
+  }
+}
+
+/** M-2 "기본으로": clears `profile."image-path"`, removes the uploaded file and shows the initial.
+ *  Throws when it couldn't be saved. */
+export async function resetProfileImage() {
+  const userId = sessionUserId;
+  if (!userId) throw new Error("not signed in");
+  const previous = await currentImagePath(userId);
+  if (previous) await saveImagePath(userId, null);
+  removeImage(previous);
+  const s = load();
+  if (s.profile && sessionUserId === userId) save({ ...s, profile: { ...s.profile, avatarUrl: null } });
 }
 
 // ── Pages (W-1 ~ W-5) ──

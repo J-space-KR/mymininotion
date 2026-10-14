@@ -10,10 +10,11 @@ import { Button } from "@/components/ds/Button";
 import { Input } from "@/components/ds/Input";
 import { Textarea } from "@/components/ds/Textarea";
 import {
+  resetProfileImage,
   saveIntroduction as saveIntroductionToStore,
   saveNickname as saveNicknameToStore,
   signOut,
-  updateProfile,
+  uploadProfileImage,
   type User,
 } from "@/lib/store";
 
@@ -22,8 +23,8 @@ export default function MyPage() {
   return <AuthGate>{({ user }) => <Profile user={user} />}</AuthGate>;
 }
 
-/** Downscale to a 256px square JPEG data URL so it fits comfortably in localStorage. */
-function toAvatarDataUrl(file: File): Promise<string> {
+/** Downscale to a 256px square JPEG so it stays well under the bucket's 2MB limit. */
+function toAvatarJpeg(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -35,9 +36,12 @@ function toAvatarDataUrl(file: File): Promise<string> {
         .getContext("2d")!
         .drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
       URL.revokeObjectURL(img.src);
-      resolve(canvas.toDataURL("image/jpeg", 0.85));
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))), "image/jpeg", 0.85);
     };
-    img.onerror = reject;
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      reject(new Error("image load failed"));
+    };
     img.src = URL.createObjectURL(file);
   });
 }
@@ -53,6 +57,10 @@ function Profile({ user }: { user: User }) {
   const [saving, setSaving] = useState(false);
   const trimmed = nickname.trim();
   const canSave = !saving && trimmed.length > 0 && trimmed !== user.nickname;
+
+  // M-2: 프로필 이미지는 Supabase Storage에 올린다. 올리는 동안엔 버튼을 막는다.
+  const [imageHint, setImageHint] = useState("");
+  const [savingImage, setSavingImage] = useState(false);
 
   // M-4: 자기소개. 고치지 않은 채로 다른 기기에서 바뀐 값이 늦게 도착하면 입력창도 따라 바꾼다.
   const [intro, setIntro] = useState(user.introduction);
@@ -103,10 +111,35 @@ function Profile({ user }: { user: User }) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    let image: Blob;
     try {
-      updateProfile({ avatarUrl: await toAvatarDataUrl(file) });
+      image = await toAvatarJpeg(file);
     } catch {
-      setHint("이미지를 읽지 못했어요. 다른 파일을 골라 주세요");
+      setImageHint("이미지를 읽지 못했어요. 다른 파일을 골라 주세요");
+      return;
+    }
+    setSavingImage(true);
+    setImageHint("올리는 중…");
+    try {
+      await uploadProfileImage(image);
+      setImageHint("이미지를 바꿨어요");
+    } catch {
+      setImageHint("이미지를 올리지 못했어요. 잠시 후 다시 골라 주세요");
+    } finally {
+      setSavingImage(false);
+    }
+  }
+
+  async function resetImage() {
+    setSavingImage(true);
+    setImageHint("저장 중…");
+    try {
+      await resetProfileImage();
+      setImageHint("기본 이미지로 바꿨어요");
+    } catch {
+      setImageHint("저장하지 못했어요. 잠시 후 다시 눌러 주세요");
+    } finally {
+      setSavingImage(false);
     }
   }
 
@@ -140,11 +173,12 @@ function Profile({ user }: { user: User }) {
             </div>
             {user.introduction && <p className="profile-card__intro">{user.introduction}</p>}
             <div style={{ display: "flex", gap: 8 }}>
-              <Button variant="secondary" size="sm" icon="image" onClick={() => fileRef.current?.click()}>이미지 변경</Button>
+              <Button variant="secondary" size="sm" icon="image" disabled={savingImage} onClick={() => fileRef.current?.click()}>이미지 변경</Button>
               {user.avatarUrl && (
-                <Button variant="ghost" size="sm" onClick={() => updateProfile({ avatarUrl: null })}>기본으로</Button>
+                <Button variant="ghost" size="sm" disabled={savingImage} onClick={resetImage}>기본으로</Button>
               )}
             </div>
+            {imageHint && <span className="muted" role="status">{imageHint}</span>}
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickImage} />
           </div>
         </div>
